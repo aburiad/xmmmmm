@@ -19,8 +19,7 @@ export default function SubscriptionPage() {
     teachers, 
     updateSubscription, 
     addTeacher, 
-    removeTeacher,
-    login 
+    removeTeacher
   } = useSubscription();
 
   const [newTeacher, setNewTeacher] = useState({ name: '', email: '', username: '', password: '' });
@@ -37,28 +36,10 @@ export default function SubscriptionPage() {
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-8">
-      {/* Role Switcher (For Demo purposes) */}
-      <div className="bg-slate-100 p-4 rounded-xl flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Settings className="w-5 h-5 text-slate-500" />
-          <span className="font-medium text-slate-700">ডেভলপার মোড: রোল পরিবর্তন করুন</span>
-        </div>
-        <div className="flex gap-2">
-          {(['super_admin', 'school_admin', 'teacher_user'] as UserRole[]).map((role) => (
-            <button
-              key={role}
-              onClick={() => login(role)}
-              className={`px-4 py-1.5 rounded-lg text-sm transition-all ${
-                user?.role === role 
-                ? 'bg-blue-600 text-white shadow-md' 
-                : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
-              }`}
-            >
-              {role === 'super_admin' ? 'Super Admin' : role === 'school_admin' ? 'School Admin' : 'Teacher'}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* 
+        Developer Mode Switcher Removed. 
+        Use the main Login page to access different roles.
+      */}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Subscription Status Card */}

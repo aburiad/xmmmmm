@@ -39,13 +39,14 @@ interface SubscriptionContextType {
   user: UserProfile | null;
   subscription: SubscriptionStatus;
   teachers: Teacher[];
-  login: (role: UserRole) => void;
+  login: (username: string, password?: string, url?: string) => Promise<boolean>;
   updateSubscription: (data: Partial<SubscriptionStatus>) => void;
   addTeacher: (data: NewTeacherData) => Promise<boolean>;
   removeTeacher: (id: string) => void;
   isSubscriptionValid: () => boolean;
   canPerformAction: () => boolean;
   isLoading: boolean;
+  logout: () => void;
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
@@ -70,9 +71,10 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [isLoading, setIsLoading] = useState(true);
   
   // State
+  const [wpUrl, setWpUrl] = useState<string>(() => localStorage.getItem('wp_site_url') || '');
   const [user, setUser] = useState<UserProfile | null>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.USER);
-    return saved ? JSON.parse(saved) : { id: 'admin_1', role: 'super_admin', name: 'Super Admin', email: 'admin@example.com' };
+    return saved ? JSON.parse(saved) : null;
   });
 
   const [subscription, setSubscription] = useState<SubscriptionStatus>(() => {
@@ -87,21 +89,35 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   // Sync to API
   const fetchFromAPI = async () => {
+    if (!wpUrl || !user) return; // Cannot fetch without URL or User
+
     try {
       setIsLoading(true);
+      const apiBase = `${wpUrl}/wp-json/sqg/v1`;
       
       // 1. Get Status
-      const statusRes = await fetch(`${API_BASE}/status`);
+      // We assume Basic Auth or some token header is stored. 
+      // For simplicity in this iteration, we might not have a token yet.
+      // Let's assume the plugin is public for status OR we pass the stored token.
+      const token = localStorage.getItem('wp_auth_token');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+      const statusRes = await fetch(`${apiBase}/status`, { headers });
       if (statusRes.ok) {
         const statusData = await statusRes.json();
-        // Update user and subscription based on API
-        // This logic depends on exact API response structure
-        // For now, we keep the mock/localStorage as primary if API fails
+        // Update subscription
+        setSubscription(prev => ({
+             ...prev,
+             status: statusData.status,
+             expire_date: statusData.expire_date,
+             teacher_limit: statusData.teacher_limit,
+             used_teacher_count: statusData.used_teacher_count
+        }));
       }
 
       // 2. Get Teachers (if school admin)
-      if (user?.role === 'school_admin') {
-        const teachersRes = await fetch(`${API_BASE}/teachers`);
+      if (user?.role === 'school_admin' || user?.role === 'super_admin') {
+        const teachersRes = await fetch(`${apiBase}/teachers`, { headers });
         if (teachersRes.ok) {
           const teachersData = await teachersRes.json();
           // Map API response to our Teacher interface
@@ -136,16 +152,64 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
   }, [subscription, teachers, user]);
 
-  const login = (role: UserRole) => {
-    const mockUser: UserProfile = {
-      id: Math.random().toString(36).substr(2, 9),
-      role,
-      name: role === 'super_admin' ? 'Super Admin' : role === 'school_admin' ? 'School Admin' : 'Teacher User',
-      email: `${role}@school.com`,
-      school_id: role === 'teacher' || role === 'teacher_user' ? 'school_123' : undefined
-    };
-    setUser(mockUser);
-    toast.success(`${role} হিসেবে লগইন করা হয়েছে (Developer Mode)`);
+  const login = async (username: string, password?: string, url?: string) => {
+    // If URL is provided, update it
+    let currentUrl = url || wpUrl;
+    if (url) setWpUrl(url);
+
+    if (!currentUrl) {
+       toast.error("WordPress URL missing");
+       return false;
+    }
+
+    // Special "Developer Mode" bypass (for testing without real backend)
+    if (username === 'dev' && password === 'dev') {
+        const mockUser: UserProfile = {
+            id: 'dev_1',
+            role: 'super_admin',
+            name: 'Developer Admin',
+            email: 'dev@example.com'
+        };
+        setUser(mockUser);
+        toast.success("Developer Mode Active");
+        return true;
+    }
+
+    try {
+        // Attempt to login via API
+        // We will try a standard WP JSON Auth or Custom Endpoint
+        // Assumed Endpoint: POST /wp-json/sqg/v1/login { username, password }
+        const res = await fetch(`${currentUrl}/wp-json/sqg/v1/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+
+        if (res.ok) {
+            const data = await res.json();
+            // Expected data: { token: '...', user: { ... } }
+            localStorage.setItem('wp_auth_token', data.token);
+            
+            const userData: UserProfile = {
+                id: data.user.ID || data.user.id,
+                name: data.user.display_name || data.user.name,
+                email: data.user.user_email || data.user.email,
+                role: data.user.roles.includes('administrator') ? 'school_admin' : 'teacher', 
+                // Note: Logic to determine role might need adjustment based on plugin
+            };
+            setUser(userData);
+            toast.success("লগইন সফল হয়েছে");
+            return true;
+        } else {
+             const err = await res.json();
+             throw new Error(err.message || 'Login failed');
+        }
+    } catch (e) {
+        console.error("Login Error:", e);
+        // If API fails, we can't login.
+        toast.error("সার্ভারের সাথে সংযোগ স্থাপন করা যাচ্ছে না বা তথ্য ভুল");
+        return false;
+    }
   };
 
   const isSubscriptionValid = () => {
@@ -232,6 +296,13 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     toast.success('শিক্ষককে অপসারণ করা হয়েছে (Local)');
   };
 
+  const logout = () => {
+    setUser(null);
+    localStorage.removeItem(STORAGE_KEYS.USER);
+    localStorage.removeItem('wp_auth_token');
+    toast.success("লগআউট করা হয়েছে");
+  };
+
   return (
     <SubscriptionContext.Provider
       value={{
@@ -244,7 +315,8 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
         removeTeacher,
         isSubscriptionValid,
         canPerformAction,
-        isLoading
+        isLoading,
+        logout
       }}
     >
       {children}
