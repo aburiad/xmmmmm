@@ -1,38 +1,35 @@
-import { useState, useEffect } from 'react';
+import {
+    ArrowLeft,
+    BookOpen,
+    Copy,
+    Eye,
+    FileText,
+    Plus,
+    Save,
+    Trash2,
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
+import { toast } from 'sonner';
+import { BlockEditor } from '../components/BlockEditor';
+import { MobileHeader } from '../components/mobile/MobileHeader';
+import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Badge } from '../components/ui/badge';
-import { Label } from '../components/ui/label';
 import { Input } from '../components/ui/input';
-import { Checkbox } from '../components/ui/checkbox';
-import { Switch } from '../components/ui/switch';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
-import { Separator } from '../components/ui/separator';
-import {
-  ArrowLeft,
-  BookOpen,
-  Eye,
-  Plus,
-  Trash2,
-  Save,
-  FileText,
-  Copy,
-} from 'lucide-react';
-import { Question, QuestionPaper, QuestionType, SubQuestion } from '../types';
-import { loadPapers, savePaper, generateId } from '../utils/storage';
-import { BlockEditor } from '../components/BlockEditor';
-import { toast } from 'sonner';
+import { Label } from '../components/ui/label';
 import { ScrollArea } from '../components/ui/scroll-area';
-import { HelpDialog } from '../components/HelpDialog';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '../components/ui/select';
+import { Switch } from '../components/ui/switch';
 import { useIsMobile } from '../hooks/useIsMobile';
-import { MobileHeader } from '../components/mobile/MobileHeader';
+import { Question, QuestionPaper, QuestionType, SubQuestion } from '../types';
+import { generateId, loadPapers, savePaper } from '../utils/storage';
 
 const QUESTION_TYPES: { value: QuestionType; label: string; labelEn: string }[] = [
   { value: 'mcq', label: 'বহুনির্বাচনী', labelEn: 'MCQ' },
@@ -85,7 +82,7 @@ export default function QuestionBuilder() {
     setEditingIndex(-1);
   };
 
-  const saveQuestion = () => {
+  const saveQuestion = async () => {
     if (!paper || !selectedQuestion) return;
 
     if (selectedQuestion.blocks.length === 0) {
@@ -112,7 +109,7 @@ export default function QuestionBuilder() {
       updatedAt: new Date().toISOString(),
     };
 
-    savePaper(updatedPaper);
+    await savePaper(updatedPaper);
     setPaper(updatedPaper);
     setSelectedQuestion(null);
     setEditingIndex(-1);
@@ -123,7 +120,7 @@ export default function QuestionBuilder() {
     setEditingIndex(index);
   };
 
-  const deleteQuestion = (index: number) => {
+  const deleteQuestion = async (index: number) => {
     if (!paper) return;
 
     const updatedQuestions = paper.questions
@@ -136,12 +133,12 @@ export default function QuestionBuilder() {
       updatedAt: new Date().toISOString(),
     };
 
-    savePaper(updatedPaper);
+    await savePaper(updatedPaper);
     setPaper(updatedPaper);
     toast.success('প্রশ্ন মুছে ফেলা হয়েছে');
   };
 
-  const duplicateQuestion = (index: number) => {
+  const duplicateQuestion = async (index: number) => {
     if (!paper) return;
 
     const originalQuestion = paper.questions[index];
@@ -168,7 +165,7 @@ export default function QuestionBuilder() {
       updatedAt: new Date().toISOString(),
     };
 
-    savePaper(updatedPaper);
+    await savePaper(updatedPaper);
     setPaper(updatedPaper);
     toast.success('প্রশ্ন কপি করা হয়েছে');
   };

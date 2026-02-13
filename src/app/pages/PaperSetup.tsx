@@ -1,21 +1,21 @@
-import { useState, useEffect } from 'react';
+import { ArrowLeft, ArrowRight, BookOpen } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
+import { toast } from 'sonner';
 import { Button } from '../components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { Textarea } from '../components/ui/textarea';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from '../components/ui/select';
-import { ArrowLeft, ArrowRight, BookOpen } from 'lucide-react';
-import { PaperSetup, QuestionPaper, ExamType, LayoutType } from '../types';
-import { loadPapers, savePaper, generateId } from '../utils/storage';
-import { toast } from 'sonner';
+import { Textarea } from '../components/ui/textarea';
+import { ExamType, LayoutType, PaperSetup, QuestionPaper } from '../types';
+import { generateId, loadPapers, savePaper } from '../utils/storage';
 
 export default function PaperSetupPage() {
   const { paperId } = useParams();
@@ -43,7 +43,7 @@ export default function PaperSetupPage() {
     }
   }, [paperId]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Custom subject check করো
@@ -84,7 +84,7 @@ export default function PaperSetupPage() {
       };
     }
 
-    savePaper(paper);
+    await savePaper(paper);
     toast.success('সেটআপ সংরক্ষিত হয়েছে');
     navigate(`/builder/${paper.id}`);
   };

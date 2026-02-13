@@ -77,6 +77,66 @@ class QP_REST_API {
             'callback'            => array($this, 'get_papers'),
             'permission_callback' => '__return_true',
         ));
+        
+        // Get single paper
+        register_rest_route($namespace, '/papers/(?P<id>\d+)', array(
+            'methods'             => 'GET',
+            'callback'            => array($this, 'get_paper'),
+            'permission_callback' => '__return_true',
+            'args'                => array(
+                'id' => array(
+                    'required'          => true,
+                    'validate_callback' => function($param) {
+                        return is_numeric($param);
+                    }
+                ),
+            ),
+        ));
+        
+        // Update paper
+        register_rest_route($namespace, '/papers/(?P<id>\d+)', array(
+            'methods'             => 'PUT',
+            'callback'            => array($this, 'update_paper'),
+            'permission_callback' => '__return_true',
+            'args'                => array(
+                'id' => array(
+                    'required'          => true,
+                    'validate_callback' => function($param) {
+                        return is_numeric($param);
+                    }
+                ),
+            ),
+        ));
+        
+        // Delete paper
+        register_rest_route($namespace, '/papers/(?P<id>\d+)', array(
+            'methods'             => 'DELETE',
+            'callback'            => array($this, 'delete_paper'),
+            'permission_callback' => '__return_true',
+            'args'                => array(
+                'id' => array(
+                    'required'          => true,
+                    'validate_callback' => function($param) {
+                        return is_numeric($param);
+                    }
+                ),
+            ),
+        ));
+        
+        // Duplicate paper
+        register_rest_route($namespace, '/papers/(?P<id>\d+)/duplicate', array(
+            'methods'             => 'POST',
+            'callback'            => array($this, 'duplicate_paper'),
+            'permission_callback' => '__return_true',
+            'args'                => array(
+                'id' => array(
+                    'required'          => true,
+                    'validate_callback' => function($param) {
+                        return is_numeric($param);
+                    }
+                ),
+            ),
+        ));
     }
     
     /**
@@ -302,6 +362,9 @@ class QP_REST_API {
      * Get all question papers
      */
     public function get_papers($request) {
+        // Get user ID from auth token if available
+        $user_id = $this->get_user_from_request($request);
+        
         $args = array(
             'post_type'      => 'question_paper',
             'posts_per_page' => -1,
@@ -309,6 +372,11 @@ class QP_REST_API {
             'orderby'        => 'date',
             'order'          => 'DESC'
         );
+        
+        // Filter by user if authenticated
+        if ($user_id) {
+            $args['author'] = $user_id;
+        }
         
         $query = new WP_Query($args);
         $papers = array();
@@ -318,12 +386,19 @@ class QP_REST_API {
                 $query->the_post();
                 $post_id = get_the_ID();
                 
+                // Get full paper data
+                $paper_data = get_post_meta($post_id, 'qp_data', true);
+                $page_settings = get_post_meta($post_id, 'qp_page_settings', true);
+                
                 $papers[] = array(
-                    'id'           => $post_id,
-                    'title'        => get_the_title(),
-                    'date'         => get_the_date('c'),
-                    'pdf_url'      => get_post_meta($post_id, 'qp_pdf_url', true),
-                    'has_pdf'      => !empty(get_post_meta($post_id, 'qp_pdf_url', true)),
+                    'id'            => (string)$post_id,
+                    'title'         => get_the_title(),
+                    'createdAt'     => get_the_date('c'),
+                    'updatedAt'     => get_the_modified_date('c'),
+                    'pdf_url'       => get_post_meta($post_id, 'qp_pdf_url', true),
+                    'data'          => $paper_data ? json_decode($paper_data, true) : null,
+                    'pageSettings'  => $page_settings ? json_decode($page_settings, true) : null,
+                    'has_pdf'       => !empty(get_post_meta($post_id, 'qp_pdf_url', true)),
                 );
             }
             wp_reset_postdata();
@@ -334,5 +409,208 @@ class QP_REST_API {
             'papers'  => $papers,
             'total'   => count($papers)
         ), 200);
+    }
+
+    /**
+     * Get a single paper by ID
+     */
+    public function get_paper($request) {
+        $post_id = $request->get_param('id');
+        
+        // Check if post exists
+        $post = get_post($post_id);
+        if (!$post || $post->post_type !== 'question_paper') {
+            return new WP_Error(
+                'not_found',
+                'Question paper not found',
+                array('status' => 404)
+            );
+        }
+        
+        // Get full paper data
+        $paper_data = get_post_meta($post_id, 'qp_data', true);
+        $page_settings = get_post_meta($post_id, 'qp_page_settings', true);
+        
+        return new WP_REST_Response(array(
+            'success' => true,
+            'paper' => array(
+                'id'            => (string)$post_id,
+                'title'         => get_the_title($post_id),
+                'createdAt'     => get_the_date('c', $post_id),
+                'updatedAt'     => get_the_modified_date('c', $post_id),
+                'pdf_url'       => get_post_meta($post_id, 'qp_pdf_url', true),
+                'data'          => $paper_data ? json_decode($paper_data, true) : null,
+                'pageSettings'  => $page_settings ? json_decode($page_settings, true) : null,
+            )
+        ), 200);
+    }
+
+    /**
+     * Update a question paper
+     */
+    public function update_paper($request) {
+        try {
+            $post_id = $request->get_param('id');
+            $params = $request->get_json_params();
+            
+            // Check if post exists
+            $post = get_post($post_id);
+            if (!$post || $post->post_type !== 'question_paper') {
+                return new WP_Error(
+                    'not_found',
+                    'Question paper not found',
+                    array('status' => 404)
+                );
+            }
+            
+            // Update post title if provided
+            if (!empty($params['title'])) {
+                wp_update_post(array(
+                    'ID' => $post_id,
+                    'post_title' => sanitize_text_field($params['title'])
+                ));
+            }
+            
+            // Update paper data
+            if (!empty($params['data'])) {
+                update_post_meta($post_id, 'qp_data', wp_json_encode($params['data']));
+            }
+            
+            // Update page settings
+            if (!empty($params['pageSettings'])) {
+                update_post_meta($post_id, 'qp_page_settings', wp_json_encode($params['pageSettings']));
+            }
+            
+            return new WP_REST_Response(array(
+                'success' => true,
+                'post_id' => $post_id,
+                'message' => 'Question paper updated successfully'
+            ), 200);
+            
+        } catch (Exception $e) {
+            return new WP_Error(
+                'update_failed',
+                $e->getMessage(),
+                array('status' => 500)
+            );
+        }
+    }
+
+    /**
+     * Delete a question paper
+     */
+    public function delete_paper($request) {
+        try {
+            $post_id = $request->get_param('id');
+            
+            // Check if post exists
+            $post = get_post($post_id);
+            if (!$post || $post->post_type !== 'question_paper') {
+                return new WP_Error(
+                    'not_found',
+                    'Question paper not found',
+                    array('status' => 404)
+                );
+            }
+            
+            // Delete post and its meta
+            wp_delete_post($post_id, true);
+            
+            return new WP_REST_Response(array(
+                'success' => true,
+                'message' => 'Question paper deleted successfully'
+            ), 200);
+            
+        } catch (Exception $e) {
+            return new WP_Error(
+                'delete_failed',
+                $e->getMessage(),
+                array('status' => 500)
+            );
+        }
+    }
+
+    /**
+     * Duplicate a question paper
+     */
+    public function duplicate_paper($request) {
+        try {
+            $post_id = $request->get_param('id');
+            
+            // Check if post exists
+            $post = get_post($post_id);
+            if (!$post || $post->post_type !== 'question_paper') {
+                return new WP_Error(
+                    'not_found',
+                    'Question paper not found',
+                    array('status' => 404)
+                );
+            }
+            
+            // Get original paper data
+            $original_title = get_the_title($post_id);
+            $paper_data = get_post_meta($post_id, 'qp_data', true);
+            $page_settings = get_post_meta($post_id, 'qp_page_settings', true);
+            
+            // Create new post
+            $new_post_data = array(
+                'post_title'   => $original_title . ' (Copy)',
+                'post_type'    => 'question_paper',
+                'post_status'  => 'publish',
+                'post_author'  => get_post_field('post_author', $post_id),
+            );
+            
+            $new_post_id = wp_insert_post($new_post_data);
+            
+            if (is_wp_error($new_post_id)) {
+                return $new_post_id;
+            }
+            
+            // Copy meta data
+            if ($paper_data) {
+                update_post_meta($new_post_id, 'qp_data', $paper_data);
+            }
+            if ($page_settings) {
+                update_post_meta($new_post_id, 'qp_page_settings', $page_settings);
+            }
+            
+            return new WP_REST_Response(array(
+                'success' => true,
+                'post_id' => $new_post_id,
+                'message' => 'Question paper duplicated successfully'
+            ), 201);
+            
+        } catch (Exception $e) {
+            return new WP_Error(
+                'duplicate_failed',
+                $e->getMessage(),
+                array('status' => 500)
+            );
+        }
+    }
+
+    /**
+     * Helper: Get user ID from auth token in request
+     */
+    private function get_user_from_request($request) {
+        $headers = $request->get_headers();
+        
+        // Check for Authorization header with token
+        if (isset($headers['authorization'])) {
+            $auth_header = $headers['authorization'];
+            if (strpos($auth_header, 'Bearer ') === 0) {
+                $token = substr($auth_header, 7);
+                
+                // Find user by token
+                $users = get_users(array(
+                    'meta_key' => 'myqugen_auth_token',
+                    'meta_value' => $token
+                ));
+                
+                return !empty($users) ? $users[0]->ID : null;
+            }
+        }
+        
+        return null;
     }
 }

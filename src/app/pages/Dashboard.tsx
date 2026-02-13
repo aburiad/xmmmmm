@@ -1,57 +1,81 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router';
-import { Button } from '../components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Badge } from '../components/ui/badge';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '../components/ui/dropdown-menu';
-import {
-  BookOpen,
-  Plus,
-  FileText,
-  MoreVertical,
-  Eye,
-  Pencil,
-  Copy,
-  Trash2,
-  GraduationCap,
-  Clock,
-  Settings,
-  LogOut,
+    BookOpen,
+    Clock,
+    Copy,
+    Eye,
+    FileText,
+    GraduationCap,
+    LogOut,
+    MoreVertical,
+    Pencil,
+    Plus,
+    Settings,
+    Trash2,
 } from 'lucide-react';
-import { QuestionPaper } from '../types';
-import { loadPapers, deletePaper, duplicatePaper } from '../utils/storage';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { HelpDialog } from '../components/HelpDialog';
-import { useIsMobile } from '../hooks/useIsMobile';
-import { MobileHeader } from '../components/mobile/MobileHeader';
 import { FAB } from '../components/mobile/FAB';
-import { MobileCard, MobileCardHeader, MobileCardContent, MobileCardFooter } from '../components/mobile/MobileCard';
+import { MobileCard } from '../components/mobile/MobileCard';
+import { MobileHeader } from '../components/mobile/MobileHeader';
+import { Badge } from '../components/ui/badge';
+import { Button } from '../components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '../components/ui/dropdown-menu';
+import { useIsMobile } from '../hooks/useIsMobile';
+import { QuestionPaper } from '../types';
+import { deletePaper, duplicatePaper, loadPapers } from '../utils/storage';
 
 export default function Dashboard() {
   const [papers, setPapers] = useState<QuestionPaper[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
   useEffect(() => {
-    setPapers(loadPapers());
+    // Load papers from storage (localStorage + WordPress background sync)
+    const initialLoad = async () => {
+      setIsLoading(true);
+      try {
+        setPapers(loadPapers());
+      } catch (error) {
+        console.error('Error loading papers:', error);
+        toast.error('Failed to load papers');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    initialLoad();
   }, []);
 
-  const handleDelete = (id: string) => {
-    deletePaper(id);
-    setPapers(loadPapers());
-    toast.success('Question paper deleted');
+  const handleDelete = async (id: string) => {
+    try {
+      await deletePaper(id);
+      setPapers(loadPapers());
+      toast.success('Question paper deleted');
+    } catch (error) {
+      console.error('Error deleting paper:', error);
+      toast.error('Failed to delete paper');
+    }
   };
 
-  const handleDuplicate = (id: string) => {
-    const newPaper = duplicatePaper(id);
-    if (newPaper) {
-      setPapers(loadPapers());
-      toast.success('Question paper duplicated');
+  const handleDuplicate = async (id: string) => {
+    try {
+      const newPaper = await duplicatePaper(id);
+      if (newPaper) {
+        setPapers(loadPapers());
+        toast.success('Question paper duplicated');
+      }
+    } catch (error) {
+      console.error('Error duplicating paper:', error);
+      toast.error('Failed to duplicate paper');
     }
   };
 
