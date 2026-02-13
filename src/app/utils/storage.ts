@@ -129,6 +129,13 @@ export const loadPapers = async (): Promise<QuestionPaper[]> => {
   try {
     debugLog('Loading papers from WordPress API');
     
+    // Check if localStorage has corrupted data with escaped unicode
+    const cachedData = localStorage.getItem(STORAGE_KEY);
+    if (cachedData && cachedData.includes('u09a')) {
+      debugLog('Corrupted data detected in localStorage, clearing cache');
+      localStorage.removeItem(STORAGE_KEY);
+    }
+    
     // Load from WordPress API (primary source of truth)
     let papers = await wpApi.fetchAllPapers();
     
