@@ -18,12 +18,22 @@ const ensurePaperStructure = (paper: any): QuestionPaper => {
     throw new Error('Invalid paper object');
   }
   
+  // Extract only the numeric part of class if it contains extra text
+  let classValue = paper.setup?.class || '';
+  if (classValue && typeof classValue === 'string') {
+    // Remove any non-numeric characters, keep only the first number
+    const match = classValue.match(/\d+/);
+    if (match) {
+      classValue = match[0];
+    }
+  }
+  
   return {
     id: paper.id || '',
     title: paper.title || 'Untitled',
     setup: {
       subject: paper.setup?.subject || '',
-      class: paper.setup?.class || '',
+      class: classValue,
       examType: paper.setup?.examType || 'class-test',
       date: paper.setup?.date || new Date().toISOString().split('T')[0],
       schoolName: paper.setup?.schoolName || '',
