@@ -226,7 +226,7 @@ export default function Dashboard() {
                           onClick={() => navigate(`/builder/${paper.id}`)}
                         >
                           <CardTitle className={`mb-1 group-hover:text-blue-600 transition-colors font-['Noto_Sans_Bengali'] ${isMobile ? 'text-base' : 'text-base'}`}>
-                            {getSubjectBangla(paper.setup.subject)} - শ্রেণি {getClassBangla(paper.setup.class)}
+                            শ্রেণি {getClassBangla(paper.setup.class)}
                           </CardTitle>
                           <CardDescription className="text-sm font-['Noto_Sans_Bengali']">
                             {getExamTypeBangla(paper.setup.examType)}
