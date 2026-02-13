@@ -122,6 +122,16 @@ export default function Dashboard() {
     };
     return map[classValue] || classValue;
   };
+
+  /**
+   * Strip corrupted Unicode escape sequences from text
+   * Removes patterns like u09ac, u09ba, etc that shouldn't be in the output
+   */
+  const stripCorruptedUnicode = (text: string) => {
+    if (!text) return '';
+    // Remove patterns like u09XX (corrupted unicode escape sequences)
+    return text.replace(/u[0-9a-fA-F]{4}/g, '').trim();
+  };
   };
 
   return (
@@ -226,10 +236,10 @@ export default function Dashboard() {
                           onClick={() => navigate(`/builder/${paper.id}`)}
                         >
                           <CardTitle className={`mb-1 group-hover:text-blue-600 transition-colors font-['Noto_Sans_Bengali'] ${isMobile ? 'text-base' : 'text-base'}`}>
-                            শ্রেণি {getClassBangla(paper.setup.class)}
+                            {stripCorruptedUnicode(`শ্রেণি ${getClassBangla(paper.setup.class)}`)}
                           </CardTitle>
                           <CardDescription className="text-sm font-['Noto_Sans_Bengali']">
-                            {getExamTypeBangla(paper.setup.examType)}
+                            {stripCorruptedUnicode(getExamTypeBangla(paper.setup.examType))}
                           </CardDescription>
                         </div>
                         <DropdownMenu>
