@@ -9,9 +9,9 @@ interface QuestionRendererProps {
 
 export function QuestionRenderer({ question, showAnswerSpace = true }: QuestionRendererProps) {
   return (
-    <div className="question-block space-y-3">
+    <div className="question-item space-y-3">
       {/* Question Number and Type */}
-      <div className="flex items-baseline gap-2">
+      <div className="question-header flex items-baseline gap-2">
         <span className="font-semibold text-base">{question.number}।</span>
         {question.optional && (
           <span className="text-xs text-slate-500">(ঐচ্ছিক)</span>
@@ -30,7 +30,7 @@ export function QuestionRenderer({ question, showAnswerSpace = true }: QuestionR
       {question.type === 'creative' && question.subQuestions && (
         <div className="ml-6 mt-4 space-y-4">
           {question.subQuestions.map((subQ, idx) => (
-            <div key={subQ.id} className="space-y-2">
+            <div key={subQ.id} className="sub-question space-y-2">
               <div className="flex items-baseline gap-2">
                 <span className="font-medium">{subQ.label})</span>
                 <span className="ml-auto text-sm text-slate-600">[{subQ.marks}]</span>

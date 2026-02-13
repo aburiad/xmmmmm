@@ -1,11 +1,9 @@
-import React, { useState } from 'react';
+import React, { useRef } from 'react';
 import { Button } from './ui/button';
-import { Download } from 'lucide-react';
+import { Printer } from 'lucide-react';
 import { QuestionPaper } from '../types';
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
+import { useReactToPrint } from 'react-to-print';
 import { toast } from 'sonner';
-import { ensureFontsLoaded, createStyledClone, cleanupElement } from '../utils/fontLoader';
 
 interface PDFDownloadButtonProps {
   paper: QuestionPaper;
@@ -22,179 +20,104 @@ export const PDFDownloadButton: React.FC<PDFDownloadButtonProps> = ({
   pageSettings,
   previewRef 
 }) => {
-  const [isGenerating, setIsGenerating] = useState(false);
-
-  const handleDownload = async () => {
-    if (!previewRef.current) {
-      toast.error('Preview not found');
-      return;
-    }
-
-    let tempWrapper: HTMLElement | null = null;
-
-    try {
-      setIsGenerating(true);
-      toast.info('PDF তৈরি হচ্ছে... অনুগ্রহ করে অপেক্ষা করুন');
-
-      console.log('[PDF] Starting font loading...');
-      // Wait for all fonts to load
-      await ensureFontsLoaded();
-      console.log('[PDF] Fonts loaded successfully');
-
-      console.log('[PDF] Creating styled clone...');
-      // Create a styled clone with all computed styles applied inline
-      // This returns the wrapper element containing the styled clone
-      tempWrapper = await createStyledClone(previewRef.current);
-      const clone = tempWrapper.firstChild as HTMLElement;
-      console.log('[PDF] Clone created with dimensions:', clone.offsetWidth, 'x', clone.offsetHeight);
-
-      console.log('[PDF] Starting canvas capture...');
-      // Capture the clone as canvas with high quality settings
-      const canvas = await html2canvas(clone, {
-        scale: 3, // Higher scale for better quality (3x)
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        allowTaint: true,
-        imageTimeout: 15000,
-        removeContainer: false,
-        width: clone.scrollWidth,
-        height: clone.scrollHeight,
-        windowWidth: clone.scrollWidth,
-        windowHeight: clone.scrollHeight,
-        foreignObjectRendering: false, // Disable for better compatibility
-        onclone: (clonedDoc) => {
-          // Ensure fonts are available in cloned document
-          const style = clonedDoc.createElement('style');
-          style.textContent = `
-            * {
-              font-family: 'Noto Sans Bengali', 'Noto Serif Bengali', 'Hind Siliguri', sans-serif !important;
-            }
-          `;
-          clonedDoc.head.appendChild(style);
-        },
-      });
-      console.log('[PDF] Canvas captured:', canvas.width, 'x', canvas.height);
-      
-      // Clean up temporary wrapper
-      cleanupElement(tempWrapper);
-      tempWrapper = null;
-      console.log('[PDF] Temporary elements cleaned up');
-
-      // Calculate PDF dimensions (A4 in mm: 210 x 297)
-      const imgWidth = pageSettings.pageWidth;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      console.log('[PDF] PDF dimensions:', imgWidth, 'x', imgHeight, 'mm');
-
-      // Create PDF with proper orientation
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-        compress: true,
-      });
-
-      // Convert canvas to high quality JPEG
-      const imgData = canvas.toDataURL('image/jpeg', 0.98);
-      console.log('[PDF] Image data created, size:', imgData.length, 'bytes');
-      
-      // Add image to PDF - if content is longer than one page, add multiple pages
-      let heightLeft = imgHeight;
-      let position = 0;
-      const pageHeight = pageSettings.pageHeight;
-      let pageCount = 1;
-
-      // First page
-      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
-      heightLeft -= pageHeight;
-
-      // Add subsequent pages if needed
-      while (heightLeft >= 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
-        heightLeft -= pageHeight;
-        pageCount++;
-      }
-      console.log('[PDF] Created', pageCount, 'page(s)');
-
-      // Generate filename with proper sanitization
-      // Safely extract and sanitize subject name
-      let subjectName = 'question-paper';
-      if (paper.setup.subject && typeof paper.setup.subject === 'string') {
-        // Remove Bangla characters and special characters, keep only alphanumeric, dash, underscore
-        subjectName = paper.setup.subject
-          .replace(/[\u0980-\u09FF]/g, '') // Remove Bangla characters
-          .replace(/[^\w\s-]/g, '') // Remove special chars
-          .replace(/\s+/g, '_') // Replace spaces with underscore
-          .trim() || 'question-paper';
+  const handlePrint = useReactToPrint({
+    content: () => previewRef.current,
+    documentTitle: `${paper.setup.subject || 'Question Paper'}_Class_${paper.setup.class}_${new Date().toISOString().split('T')[0]}`,
+    onBeforeGetContent: () => {
+      toast.info('প্রিন্ট প্রস্তুত হচ্ছে...');
+      return Promise.resolve();
+    },
+    onAfterPrint: () => {
+      toast.success('প্রিন্ট সফলভাবে সম্পন্ন হয়েছে!');
+    },
+    onPrintError: () => {
+      toast.error('প্রিন্ট করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
+    },
+    pageStyle: `
+      @page {
+        size: A4;
+        margin: 20mm;
       }
       
-      let className = '';
-      if (paper.setup.class && typeof paper.setup.class === 'string') {
-        className = paper.setup.class
-          .replace(/[\u0980-\u09FF]/g, '') // Remove Bangla characters
-          .replace(/[^\w\s-]/g, '') // Remove special chars
-          .replace(/\s+/g, '_') // Replace spaces with underscore
-          .trim();
+      @media print {
+        body {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        
+        /* Hide everything except the content */
+        body * {
+          visibility: hidden;
+        }
+        
+        #printable-content,
+        #printable-content * {
+          visibility: visible;
+        }
+        
+        #printable-content {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 100%;
+        }
+        
+        /* Prevent page breaks inside questions */
+        .question-item {
+          page-break-inside: avoid;
+          break-inside: avoid;
+        }
+        
+        /* Prevent page breaks after question headers */
+        .question-header {
+          page-break-after: avoid;
+          break-after: avoid;
+        }
+        
+        /* Allow page breaks between questions */
+        .question-item {
+          page-break-after: auto;
+          break-after: auto;
+        }
+        
+        /* Keep sub-questions together */
+        .sub-question {
+          page-break-inside: avoid;
+          break-inside: avoid;
+        }
+        
+        /* Ensure proper spacing */
+        .question-item {
+          margin-bottom: 1.5em;
+        }
+        
+        /* Remove shadows and backgrounds for print */
+        * {
+          box-shadow: none !important;
+          text-shadow: none !important;
+        }
+        
+        /* Ensure borders print correctly */
+        table {
+          border-collapse: collapse;
+        }
+        
+        table, th, td {
+          border: 1px solid #000 !important;
+        }
       }
-      
-      const timestamp = new Date().toISOString().split('T')[0];
-      
-      // Build filename with only safe ASCII characters
-      let fileName = subjectName;
-      if (className) {
-        fileName += `_${className}`;
-      }
-      fileName += `_${timestamp}.pdf`;
-      
-      // Ensure filename is ASCII-safe and valid
-      fileName = fileName
-        .replace(/[^\x00-\x7F]/g, '') // Remove all non-ASCII
-        .replace(/[<>:"/\\|?*]/g, '_') // Remove invalid filename characters
-        .replace(/_{2,}/g, '_') // Replace multiple underscores with single
-        .replace(/^_+|_+$/g, ''); // Trim underscores from start/end
-      
-      // Ensure we have a valid filename
-      if (!fileName || fileName.length < 5) {
-        fileName = `question-paper_${timestamp}.pdf`;
-      }
-      
-      console.log('[PDF] Saving as:', fileName);
-
-      // Download with try-catch for extra safety
-      try {
-        pdf.save(fileName);
-      } catch (saveError) {
-        console.error('[PDF] Save error, trying with fallback filename:', saveError);
-        // Fallback to simple filename
-        pdf.save(`question-paper_${timestamp}.pdf`);
-      }
-      toast.success('PDF সফলভাবে ডাউনলোড হয়েছে!');
-      console.log('[PDF] Download complete');
-    } catch (error) {
-      console.error('[PDF] Generation error:', error);
-      toast.error('PDF তৈরিতে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
-    } finally {
-      // Ensure cleanup even if there's an error
-      if (tempWrapper) {
-        console.log('[PDF] Cleaning up temporary wrapper');
-        cleanupElement(tempWrapper);
-      }
-      setIsGenerating(false);
-    }
-  };
+    `,
+  });
 
   return (
     <Button
       variant="default"
       size="sm"
-      disabled={isGenerating}
-      onClick={handleDownload}
+      onClick={handlePrint}
       className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
     >
-      <Download className="w-4 h-4 mr-2" />
-      {isGenerating ? 'PDF তৈরি হচ্ছে...' : 'PDF ডাউনলোড করুন'}
+      <Printer className="w-4 h-4 mr-2" />
+      প্রিন্ট / সেভ করুন
     </Button>
   );
 };

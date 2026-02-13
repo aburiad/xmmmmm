@@ -35,6 +35,13 @@ class QP_REST_API {
             'permission_callback' => '__return_true',
         ));
         
+        // Verify token endpoint
+        register_rest_route('myqugen/v1', '/verify', array(
+            'methods'             => 'POST',
+            'callback'            => array($this, 'verify_token'),
+            'permission_callback' => '__return_true',
+        ));
+        
         // Generate PDF from JSON data
         register_rest_route($namespace, '/generate-pdf', array(
             'methods'             => 'POST',
@@ -97,11 +104,66 @@ class QP_REST_API {
             );
         }
         
+        // Generate unique auth token for this device
+        $auth_token = wp_hash($user->ID . time() . wp_rand(), 'auth');
+        
+        // Store token in user meta (this will overwrite previous token - ensuring single device login)
+        update_user_meta($user->ID, 'myqugen_auth_token', $auth_token);
+        update_user_meta($user->ID, 'myqugen_login_time', current_time('mysql'));
+        
         return new WP_REST_Response(array(
             'success' => true,
             'user_id' => $user->ID,
             'user_display_name' => $user->display_name,
+            'auth_token' => $auth_token,
             'message' => 'Email verified successfully'
+        ), 200);
+    }
+    
+    /**
+     * Verify token
+     */
+    public function verify_token($request) {
+        $params = $request->get_json_params();
+        $token = isset($params['token']) ? $params['token'] : '';
+        $email = isset($params['email']) ? sanitize_email($params['email']) : '';
+        
+        if (empty($token) || empty($email)) {
+            return new WP_Error(
+                'missing_params',
+                'Token and email are required',
+                array('status' => 400)
+            );
+        }
+        
+        // Get user by email
+        $user = get_user_by('email', $email);
+        
+        if (!$user) {
+            return new WP_Error(
+                'user_not_found',
+                'User not found',
+                array('status' => 404)
+            );
+        }
+        
+        // Get stored token
+        $stored_token = get_user_meta($user->ID, 'myqugen_auth_token', true);
+        
+        // Verify token matches
+        if ($stored_token !== $token) {
+            return new WP_Error(
+                'invalid_token',
+                'Invalid or expired token. You may have logged in from another device.',
+                array('status' => 401)
+            );
+        }
+        
+        return new WP_REST_Response(array(
+            'success' => true,
+            'user_id' => $user->ID,
+            'user_display_name' => $user->display_name,
+            'message' => 'Token verified successfully'
         ), 200);
     }
     

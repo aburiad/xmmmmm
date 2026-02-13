@@ -314,6 +314,7 @@ export default function A4Preview() {
         {/* A4 Container - Fixed dimensions */}
         <div
           ref={previewRef}
+          id="printable-content"
           className="a4-page shadow-lg"
           style={{
             padding: `${pageMargin}mm`,

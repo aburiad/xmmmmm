@@ -1,0 +1,119 @@
+/* Print Styles for Question Papers */
+
+@media print {
+  /* Page setup for A4 */
+  @page {
+    size: A4;
+    margin: 20mm;
+  }
+
+  /* Ensure colors print */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color-adjust: exact;
+  }
+
+  /* Hide everything by default */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Show only the printable content */
+  #printable-content,
+  #printable-content * {
+    visibility: visible;
+  }
+
+  /* Position content at top */
+  #printable-content {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+
+  /* Prevent page breaks inside important elements */
+  .question-item,
+  .board-question,
+  .creative-question {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Prevent page breaks after headers */
+  .question-header,
+  .board-question-header {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+
+  /* Keep sub-questions together */
+  .sub-question,
+  .board-subquestion {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Allow page breaks between questions */
+  .question-item {
+    page-break-after: auto;
+    break-after: auto;
+  }
+
+  /* Remove shadows and effects for print */
+  * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  /* Ensure borders print correctly */
+  table {
+    border-collapse: collapse;
+  }
+
+  table,
+  th,
+  td {
+    border: 1px solid #000 !important;
+  }
+
+  /* Remove backgrounds except for table headers */
+  .bg-slate-50,
+  .bg-slate-100,
+  .bg-gray-50 {
+    background: transparent !important;
+  }
+
+  th,
+  .board-table-header {
+    background: #f1f5f9 !important;
+  }
+
+  /* Ensure proper spacing */
+  .question-item {
+    margin-bottom: 1.5em;
+  }
+
+  /* Remove rounded corners for print */
+  * {
+    border-radius: 0 !important;
+  }
+
+  /* Ensure formula rendering */
+  .katex,
+  .katex * {
+    visibility: visible !important;
+  }
+
+  /* Board exam specific */
+  .board-uddipok {
+    background-color: rgba(240, 245, 250, 0.3) !important;
+    border-left: 2px solid #999 !important;
+  }
+
+  /* Hide scroll indicators */
+  ::-webkit-scrollbar {
+    display: none;
+  }
+}

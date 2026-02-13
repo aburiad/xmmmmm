@@ -67,7 +67,9 @@ export function BoardStyleLayout({ paper, baseFontSize = 13 }: BoardStyleLayoutP
         {questionColumns.map((column, idx) => (
           <div key={idx} className="board-column">
             {column.map((question) => (
-              <BoardQuestion key={question.id} question={question} />
+              <div key={question.id} className="question-item">
+                <BoardQuestion question={question} />
+              </div>
             ))}
           </div>
         ))}

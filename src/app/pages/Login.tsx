@@ -36,6 +36,7 @@ export default function Login() {
       if (response.ok && data.success) {
         localStorage.setItem('isAuthenticated', 'true');
         localStorage.setItem('userEmail', email);
+        localStorage.setItem('authToken', data.auth_token);
         if (data.user_display_name) {
           localStorage.setItem('userName', data.user_display_name);
         }
