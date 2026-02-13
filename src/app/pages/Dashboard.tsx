@@ -1,16 +1,16 @@
 import {
-    BookOpen,
-    Clock,
-    Copy,
-    Eye,
-    FileText,
-    GraduationCap,
-    LogOut,
-    MoreVertical,
-    Pencil,
-    Plus,
-    Settings,
-    Trash2,
+  BookOpen,
+  Clock,
+  Copy,
+  Eye,
+  FileText,
+  GraduationCap,
+  LogOut,
+  MoreVertical,
+  Pencil,
+  Plus,
+  Settings,
+  Trash2,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
@@ -23,10 +23,10 @@ import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
 } from '../components/ui/dropdown-menu';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { QuestionPaper } from '../types';
@@ -156,7 +156,15 @@ export default function Dashboard() {
       questions: Array.isArray(paper.questions) ? paper.questions : [],
     };
   };
-  };
+
+  function decodeUnicodeString(str: string): string {
+    if (!str) return '';
+    return str.replace(/u([0-9a-fA-F]{4})/g, (_, hex) => {
+      return String.fromCharCode(parseInt(hex, 16));
+    });
+  }
+
+  const displaySubject = decodeUnicodeString(paper.setup.subject);
 
   return (
     <div className="min-h-screen bg-slate-50 pb-safe">
