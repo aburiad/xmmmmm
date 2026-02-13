@@ -45,8 +45,7 @@ const CardTitle = React.forwardRef<
   return (
     <h4
       ref={ref}
-      data-slot="card-title"
-      className={cn("leading-none", className)}
+      className={cn(className)}
       {...props}
     />
   );
@@ -117,11 +116,5 @@ const CardFooter = React.forwardRef<
 CardFooter.displayName = "CardFooter";
 
 export {
-  Card,
-  CardHeader,
-  CardFooter,
-  CardTitle,
-  CardAction,
-  CardDescription,
-  CardContent,
+  Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle
 };
