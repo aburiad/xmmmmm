@@ -52,7 +52,6 @@ import { loadPapers, deletePaper, duplicatePaper } from '../utils/storage';
 import { getExamTypeBangla } from '../config/constants';
 import { toast } from 'sonner';
 import { HelpDialog } from '../app/components/HelpDialog';
-import { useSubscription } from '../app/context/SubscriptionContext';
 
 /**
  * Dashboard Component
@@ -60,7 +59,6 @@ import { useSubscription } from '../app/context/SubscriptionContext';
  */
 export default function Dashboard() {
   // ==================== State Management ====================
-  const { user, logout } = useSubscription();
   
   // papers - সব question papers এর array
   const [papers, setPapers] = useState([]);
@@ -126,18 +124,6 @@ export default function Dashboard() {
             <div className="flex items-center gap-3">
               {/* Help Dialog */}
               <HelpDialog />
-
-              {/* Subscription Link (Admin Only) */}
-              {(user?.role === 'school_admin' || user?.role === 'super_admin') && (
-                <Button 
-                   variant="outline"
-                   onClick={() => navigate('/subscription')}
-                   className="hidden sm:flex"
-                >
-                  <Settings className="w-4 h-4 mr-2" />
-                  সাবস্ক্রিপশন
-                </Button>
-              )}
               
               {/* নতুন প্রশ্নপত্র তৈরি Button */}
               <Button 
@@ -145,32 +131,8 @@ export default function Dashboard() {
                 className="bg-blue-600 hover:bg-blue-700"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                নতুন প্রশ্নপত্র
+                নতুন প্রশ্নপত্র তৈরি করুন
               </Button>
-
-              {/* Profile/Logout Dropdown */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                   <Button variant="ghost" className="h-10 w-10 p-0 rounded-full bg-slate-100 overflow-hidden border border-slate-200">
-                      <img src={`https://ui-avatars.com/api/?name=${user?.name || 'User'}&background=random`} alt="Avatar" className="w-full h-full object-cover" />
-                   </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                   <div className="px-2 py-1.5 text-sm font-medium text-slate-700 border-b border-slate-100 mb-1">
-                      {user?.name}
-                      <span className="block text-xs font-normal text-slate-500">{user?.role}</span>
-                   </div>
-                   {(user?.role === 'school_admin' || user?.role === 'super_admin') && (
-                     <DropdownMenuItem onClick={() => navigate('/subscription')}>
-                        <Settings className="w-4 h-4 mr-2" /> সাবস্ক্রিপশন
-                     </DropdownMenuItem>
-                   )}
-                   <DropdownMenuItem onClick={logout} className="text-red-600">
-                      <Trash2 className="w-4 h-4 mr-2" /> লগআউট
-                   </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
             </div>
           </div>
         </div>

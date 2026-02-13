@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { useSubscription } from '../context/SubscriptionContext';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -56,18 +55,10 @@ const QUESTION_TYPES: { value: QuestionType; label: string; labelEn: string }[] 
 export default function QuestionBuilder() {
   const { paperId } = useParams();
   const navigate = useNavigate();
-  const { canPerformAction } = useSubscription();
   const [paper, setPaper] = useState<QuestionPaper | null>(null);
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
   const [editingIndex, setEditingIndex] = useState<number>(-1);
   const isMobile = useIsMobile();
-
-  useEffect(() => {
-    if (!canPerformAction()) {
-      toast.error('আপনার সাবস্ক্রিপশন সক্রিয় নয় অথবা মেয়াদ শেষ হয়ে গেছে');
-      navigate('/subscription');
-    }
-  }, [canPerformAction, navigate]);
 
   useEffect(() => {
     if (paperId) {

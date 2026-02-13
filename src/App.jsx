@@ -9,22 +9,20 @@
 import { RouterProvider } from 'react-router';
 import { router } from './routes';
 import { Toaster } from './app/components/ui/sonner';
-import { SubscriptionProvider } from './app/context/SubscriptionContext';
 
 /**
  * Main App Component
  * - RouterProvider: সব routes manage করে
  * - Toaster: Success/Error notifications দেখায়
- * - SubscriptionProvider: Auth & Subscription state manage করে
  */
 export default function App() {
   return (
-    <SubscriptionProvider>
+    <>
       {/* Router Provider - সব routes এখানে render হবে */}
       <RouterProvider router={router} />
       
       {/* Toaster - Notification messages দেখানোর জন্য */}
       <Toaster />
-    </SubscriptionProvider>
+    </>
   );
 }

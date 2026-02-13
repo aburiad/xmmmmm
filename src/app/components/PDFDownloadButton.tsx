@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Button } from './ui/button';
-import { Download, Printer } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { QuestionPaper } from '../types';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
@@ -24,20 +24,7 @@ export const PDFDownloadButton: React.FC<PDFDownloadButtonProps> = ({
 }) => {
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Detect if device is mobile/tablet
-  const isMobileDevice = () => {
-    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) 
-      || window.innerWidth < 768;
-  };
-
-  // Desktop: Use Browser Print API
-  const handlePrint = () => {
-    toast.info('Print dialog খুলছে...');
-    window.print();
-  };
-
-  // Mobile: Use html2canvas + jsPDF
-  const handleMobileDownload = async () => {
+  const handleDownload = async () => {
     if (!previewRef.current) {
       toast.error('Preview not found');
       return;
@@ -50,17 +37,21 @@ export const PDFDownloadButton: React.FC<PDFDownloadButtonProps> = ({
       toast.info('PDF তৈরি হচ্ছে... অনুগ্রহ করে অপেক্ষা করুন');
 
       console.log('[PDF] Starting font loading...');
+      // Wait for all fonts to load
       await ensureFontsLoaded();
       console.log('[PDF] Fonts loaded successfully');
 
       console.log('[PDF] Creating styled clone...');
+      // Create a styled clone with all computed styles applied inline
+      // This returns the wrapper element containing the styled clone
       tempWrapper = await createStyledClone(previewRef.current);
       const clone = tempWrapper.firstChild as HTMLElement;
       console.log('[PDF] Clone created with dimensions:', clone.offsetWidth, 'x', clone.offsetHeight);
 
       console.log('[PDF] Starting canvas capture...');
+      // Capture the clone as canvas with high quality settings
       const canvas = await html2canvas(clone, {
-        scale: 2, // Reduced scale for mobile performance
+        scale: 3, // Higher scale for better quality (3x)
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
@@ -71,7 +62,17 @@ export const PDFDownloadButton: React.FC<PDFDownloadButtonProps> = ({
         height: clone.scrollHeight,
         windowWidth: clone.scrollWidth,
         windowHeight: clone.scrollHeight,
-        foreignObjectRendering: false,
+        foreignObjectRendering: false, // Disable for better compatibility
+        onclone: (clonedDoc) => {
+          // Ensure fonts are available in cloned document
+          const style = clonedDoc.createElement('style');
+          style.textContent = `
+            * {
+              font-family: 'Noto Sans Bengali', 'Noto Serif Bengali', 'Hind Siliguri', sans-serif !important;
+            }
+          `;
+          clonedDoc.head.appendChild(style);
+        },
       });
       console.log('[PDF] Canvas captured:', canvas.width, 'x', canvas.height);
       
@@ -94,8 +95,8 @@ export const PDFDownloadButton: React.FC<PDFDownloadButtonProps> = ({
       });
 
       // Convert canvas to high quality JPEG
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
-      console.log('[PDF] Image data created');
+      const imgData = canvas.toDataURL('image/jpeg', 0.98);
+      console.log('[PDF] Image data created, size:', imgData.length, 'bytes');
       
       // Add image to PDF - if content is longer than one page, add multiple pages
       let heightLeft = imgHeight;
@@ -117,20 +118,65 @@ export const PDFDownloadButton: React.FC<PDFDownloadButtonProps> = ({
       }
       console.log('[PDF] Created', pageCount, 'page(s)');
 
-      // Generate filename
+      // Generate filename with proper sanitization
+      // Safely extract and sanitize subject name
+      let subjectName = 'question-paper';
+      if (paper.setup.subject && typeof paper.setup.subject === 'string') {
+        // Remove Bangla characters and special characters, keep only alphanumeric, dash, underscore
+        subjectName = paper.setup.subject
+          .replace(/[\u0980-\u09FF]/g, '') // Remove Bangla characters
+          .replace(/[^\w\s-]/g, '') // Remove special chars
+          .replace(/\s+/g, '_') // Replace spaces with underscore
+          .trim() || 'question-paper';
+      }
+      
+      let className = '';
+      if (paper.setup.class && typeof paper.setup.class === 'string') {
+        className = paper.setup.class
+          .replace(/[\u0980-\u09FF]/g, '') // Remove Bangla characters
+          .replace(/[^\w\s-]/g, '') // Remove special chars
+          .replace(/\s+/g, '_') // Replace spaces with underscore
+          .trim();
+      }
+      
       const timestamp = new Date().toISOString().split('T')[0];
-      const fileName = `question-paper_${timestamp}.pdf`;
+      
+      // Build filename with only safe ASCII characters
+      let fileName = subjectName;
+      if (className) {
+        fileName += `_${className}`;
+      }
+      fileName += `_${timestamp}.pdf`;
+      
+      // Ensure filename is ASCII-safe and valid
+      fileName = fileName
+        .replace(/[^\x00-\x7F]/g, '') // Remove all non-ASCII
+        .replace(/[<>:"/\\|?*]/g, '_') // Remove invalid filename characters
+        .replace(/_{2,}/g, '_') // Replace multiple underscores with single
+        .replace(/^_+|_+$/g, ''); // Trim underscores from start/end
+      
+      // Ensure we have a valid filename
+      if (!fileName || fileName.length < 5) {
+        fileName = `question-paper_${timestamp}.pdf`;
+      }
       
       console.log('[PDF] Saving as:', fileName);
 
-      // Download
-      pdf.save(fileName);
+      // Download with try-catch for extra safety
+      try {
+        pdf.save(fileName);
+      } catch (saveError) {
+        console.error('[PDF] Save error, trying with fallback filename:', saveError);
+        // Fallback to simple filename
+        pdf.save(`question-paper_${timestamp}.pdf`);
+      }
       toast.success('PDF সফলভাবে ডাউনলোড হয়েছে!');
       console.log('[PDF] Download complete');
     } catch (error) {
       console.error('[PDF] Generation error:', error);
       toast.error('PDF তৈরিতে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
     } finally {
+      // Ensure cleanup even if there's an error
       if (tempWrapper) {
         console.log('[PDF] Cleaning up temporary wrapper');
         cleanupElement(tempWrapper);
@@ -139,51 +185,16 @@ export const PDFDownloadButton: React.FC<PDFDownloadButtonProps> = ({
     }
   };
 
-  const handleDownload = () => {
-    if (isMobileDevice()) {
-      // Mobile: Use html2canvas approach
-      handleMobileDownload();
-    } else {
-      // Desktop: Use Print API
-      handlePrint();
-    }
-  };
-
   return (
-    <div className="flex gap-2">
-      <Button
-        variant="default"
-        size="sm"
-        disabled={isGenerating}
-        onClick={handleDownload}
-        className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
-      >
-        {isMobileDevice() ? (
-          <>
-            <Download className="w-4 h-4 mr-2" />
-            {isGenerating ? 'PDF তৈরি হচ্ছে...' : 'PDF ডাউনলোড করুন'}
-          </>
-        ) : (
-          <>
-            <Printer className="w-4 h-4 mr-2" />
-            Print করুন (Save as PDF)
-          </>
-        )}
-      </Button>
-      
-      {/* Alternative button for desktop users who want direct download */}
-      {!isMobileDevice() && (
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={isGenerating}
-          onClick={handleMobileDownload}
-          className="border-blue-600 text-blue-600 hover:bg-blue-50"
-        >
-          <Download className="w-4 h-4 mr-2" />
-          {isGenerating ? 'তৈরি হচ্ছে...' : 'Direct Download'}
-        </Button>
-      )}
-    </div>
+    <Button
+      variant="default"
+      size="sm"
+      disabled={isGenerating}
+      onClick={handleDownload}
+      className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+    >
+      <Download className="w-4 h-4 mr-2" />
+      {isGenerating ? 'PDF তৈরি হচ্ছে...' : 'PDF ডাউনলোড করুন'}
+    </Button>
   );
 };

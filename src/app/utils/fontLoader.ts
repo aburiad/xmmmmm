@@ -55,22 +55,80 @@ export const ensureFontsLoaded = async (): Promise<void> => {
 };
 
 /**
- * Remove all class names from element and its children
- * This forces html2canvas to use only inline styles
+ * Convert oklch() and other modern color functions to RGB
  */
-const removeAllClasses = (element: HTMLElement): void => {
+const convertColorToRGB = (colorValue: string): string => {
+  if (!colorValue) return colorValue;
+  
+  // Check if it's a modern color function that needs conversion
+  if (colorValue.includes('oklch(') || colorValue.includes('oklab(') || 
+      colorValue.includes('lch(') || colorValue.includes('lab(')) {
+    try {
+      // Create a temporary element to let browser compute the color
+      const tempDiv = document.createElement('div');
+      tempDiv.style.color = colorValue;
+      document.body.appendChild(tempDiv);
+      const computedColor = window.getComputedStyle(tempDiv).color;
+      document.body.removeChild(tempDiv);
+      return computedColor || colorValue;
+    } catch (e) {
+      console.warn('Failed to convert color:', colorValue, e);
+      return colorValue;
+    }
+  }
+  
+  return colorValue;
+};
+
+/**
+ * Recursively convert all oklch colors in an element tree
+ */
+const convertAllColorsToRGB = (element: HTMLElement): void => {
   try {
-    // Remove all classes from this element
-    element.className = '';
+    const computed = window.getComputedStyle(element);
     
-    // Process all children recursively
+    // All color-related properties that might contain oklch
+    const colorProps = [
+      'color',
+      'background-color',
+      'border-color',
+      'border-top-color',
+      'border-right-color',
+      'border-bottom-color',
+      'border-left-color',
+      'outline-color',
+      'text-decoration-color',
+    ];
+    
+    // Convert each color property
+    colorProps.forEach(prop => {
+      const value = computed.getPropertyValue(prop);
+      if (value && value !== 'transparent' && value !== 'rgba(0, 0, 0, 0)') {
+        const rgbValue = convertColorToRGB(value);
+        const camelProp = prop.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+        (element.style as any)[camelProp] = rgbValue;
+      }
+    });
+    
+    // Handle box-shadow and text-shadow which may contain multiple colors
+    ['box-shadow', 'text-shadow'].forEach(prop => {
+      const value = computed.getPropertyValue(prop);
+      if (value && value !== 'none') {
+        // Replace any oklch() in the shadow value
+        const converted = value.replace(/oklch\([^)]+\)/g, (match) => convertColorToRGB(match));
+        const camelProp = prop.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+        (element.style as any)[camelProp] = converted;
+      }
+    });
+    
+    // Process all children
     Array.from(element.children).forEach(child => {
       if (child instanceof HTMLElement) {
-        removeAllClasses(child);
+        convertAllColorsToRGB(child);
       }
     });
   } catch (e) {
-    console.warn('Error removing classes:', e);
+    console.warn('Error converting colors:', e);
   }
 };
 
@@ -182,9 +240,12 @@ export const applyAllInlineStyles = (element: HTMLElement): void => {
             return;
           }
           
+          // Convert oklch() colors to RGB
+          let finalValue = convertColorToRGB(value);
+          
           // Convert kebab-case to camelCase for style object
           const camelProp = prop.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
-          (element.style as any)[camelProp] = value;
+          (element.style as any)[camelProp] = finalValue;
         }
       } catch (e) {
         // Skip properties that throw errors
@@ -242,14 +303,13 @@ export const createStyledClone = async (element: HTMLElement): Promise<HTMLEleme
   wrapper.appendChild(clone);
   document.body.appendChild(wrapper);
 
-  // Apply styles BEFORE removing classes
-  // First apply all inline styles (this reads computed styles which need classes)
+  // First convert all oklch colors to RGB throughout the tree
+  console.log('[FontLoader] Converting oklch colors to RGB...');
+  convertAllColorsToRGB(clone);
+
+  // Then apply all inline styles
   console.log('[FontLoader] Applying inline styles...');
   applyAllInlineStyles(clone);
-
-  // Finally remove all classes to prevent html2canvas from reading stylesheets
-  console.log('[FontLoader] Removing all classes...');
-  removeAllClasses(clone);
 
   // Wait for styles to settle
   await new Promise(resolve => setTimeout(resolve, 200));

@@ -4,15 +4,24 @@ import PaperSetup from './pages/PaperSetup';
 import QuestionBuilder from './pages/QuestionBuilder';
 import A4Preview from './pages/A4Preview';
 import Settings from './pages/Settings';
-import SubscriptionPage from './pages/Subscription';
 import NotFound from './pages/NotFound';
+import Login from './pages/Login';
 import { RootLayout } from './components/layouts/RootLayout';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { RequireAuth } from './components/RequireAuth';
 
 export const router = createBrowserRouter([
   {
+    path: '/login',
+    element: <Login />,
+  },
+  {
     path: '/',
-    element: <RootLayout />,
+    element: (
+      <RequireAuth>
+        <RootLayout />
+      </RequireAuth>
+    ),
     errorElement: <ErrorBoundary />,
     children: [
       {
@@ -34,10 +43,6 @@ export const router = createBrowserRouter([
       {
         path: 'settings',
         element: <Settings />,
-      },
-      {
-        path: 'subscription',
-        element: <SubscriptionPage />,
       },
       {
         path: '*',

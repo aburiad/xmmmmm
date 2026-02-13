@@ -20,9 +20,6 @@ import PaperSetup from './pages/PaperSetup';
 import QuestionBuilder from './pages/QuestionBuilder';
 import A4Preview from './pages/A4Preview';
 import NotFound from './pages/NotFound';
-import Login from './app/pages/Login';
-import SubscriptionPage from './app/pages/Subscription';
-import ProtectedRoute from './app/components/ProtectedRoute';
 
 /**
  * Router configuration তৈরি করা হচ্ছে
@@ -30,48 +27,20 @@ import ProtectedRoute from './app/components/ProtectedRoute';
  */
 export const router = createBrowserRouter([
   {
-    path: '/login',
-    Component: Login,
-  },
-  {
     path: '/', // Root path
-    element: (
-      <ProtectedRoute>
-        <Dashboard />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: '/subscription',
-    element: (
-      <ProtectedRoute>
-        <SubscriptionPage />
-      </ProtectedRoute>
-    ),
+    Component: Dashboard, // Dashboard page দেখাবে
   },
   {
     path: '/setup/:paperId', // Paper setup করার page (:paperId হলো dynamic parameter)
-    element: (
-      <ProtectedRoute>
-        <PaperSetup />
-      </ProtectedRoute>
-    ),
+    Component: PaperSetup,
   },
   {
     path: '/builder/:paperId', // Question তৈরি করার page
-    element: (
-      <ProtectedRoute>
-        <QuestionBuilder />
-      </ProtectedRoute>
-    ),
+    Component: QuestionBuilder,
   },
   {
     path: '/preview/:paperId', // A4 format এ preview দেখার page
-    element: (
-      <ProtectedRoute>
-        <A4Preview />
-      </ProtectedRoute>
-    ),
+    Component: A4Preview,
   },
   {
     path: '*', // যদি কোনো route match না করে, তাহলে Not Found page দেখাবে

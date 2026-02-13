@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { useSubscription } from '../context/SubscriptionContext';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -21,7 +20,6 @@ import { toast } from 'sonner';
 export default function PaperSetupPage() {
   const { paperId } = useParams();
   const navigate = useNavigate();
-  const { canPerformAction } = useSubscription();
   const [setup, setSetup] = useState<PaperSetup>({
     class: 6,
     subject: 'গণিত',
@@ -34,13 +32,6 @@ export default function PaperSetupPage() {
     instructions: '',
   });
   const [customSubject, setCustomSubject] = useState('');
-
-  useEffect(() => {
-    if (!canPerformAction()) {
-      toast.error('আপনার সাবস্ক্রিপশন সক্রিয় নয় অথবা মেয়াদ শেষ হয়ে গেছে');
-      navigate('/subscription');
-    }
-  }, [canPerformAction, navigate]);
 
   useEffect(() => {
     if (paperId) {
