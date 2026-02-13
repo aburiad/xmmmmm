@@ -11,6 +11,43 @@ const debugLog = (message: string, data?: any) => {
 };
 
 /**
+ * Properly decode Unicode escaped strings
+ * Handles cases where text is stored as escaped sequences like \u09AC
+ */
+const decodeUnicodeString = (str: any): string => {
+  if (typeof str !== 'string') return str;
+  
+  try {
+    // If string contains unicode escape sequences, decode them
+    return str.replace(/\\u([0-9a-fA-F]{4})/g, (match, hex) => {
+      return String.fromCharCode(parseInt(hex, 16));
+    });
+  } catch (e) {
+    return str;
+  }
+};
+
+/**
+ * Recursively decode all string values in an object
+ */
+const decodeObjectStrings = (obj: any): any => {
+  if (typeof obj === 'string') {
+    return decodeUnicodeString(obj);
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(item => decodeObjectStrings(item));
+  }
+  if (obj !== null && typeof obj === 'object') {
+    const decoded: any = {};
+    for (const key in obj) {
+      decoded[key] = decodeObjectStrings(obj[key]);
+    }
+    return decoded;
+  }
+  return obj;
+};
+
+/**
  * Ensure paper has all required fields with safe defaults
  */
 const ensurePaperStructure = (paper: any): QuestionPaper => {
@@ -93,7 +130,10 @@ export const loadPapers = async (): Promise<QuestionPaper[]> => {
     debugLog('Loading papers from WordPress API');
     
     // Load from WordPress API (primary source of truth)
-    const papers = await wpApi.fetchAllPapers();
+    let papers = await wpApi.fetchAllPapers();
+    
+    // Decode any Unicode escape sequences in the papers
+    papers = decodeObjectStrings(papers);
     
     // Ensure papers is always an array
     const papersArray = Array.isArray(papers) ? papers : [];
@@ -119,7 +159,9 @@ export const loadPapers = async (): Promise<QuestionPaper[]> => {
       const cachedData = localStorage.getItem(STORAGE_KEY);
       if (cachedData) {
         try {
-          const cached = JSON.parse(cachedData);
+          let cached = JSON.parse(cachedData);
+          // Decode any Unicode escape sequences
+          cached = decodeObjectStrings(cached);
           const cachedArray = Array.isArray(cached) ? cached : [];
           
           // Validate cached papers structure
@@ -171,7 +213,9 @@ export const loadPapers = async (): Promise<QuestionPaper[]> => {
     try {
       const cachedData = localStorage.getItem(STORAGE_KEY);
       if (cachedData) {
-        const cached = JSON.parse(cachedData);
+        let cached = JSON.parse(cachedData);
+        // Decode any Unicode escape sequences
+        cached = decodeObjectStrings(cached);
         const cachedArray = Array.isArray(cached) ? cached : [];
         
         // Validate cached papers structure
