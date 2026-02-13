@@ -91,9 +91,22 @@ export const fetchAllPapers = async () => {
     }
     
     const data = await response.json();
-    const papers = Array.isArray(data) ? data : (data.papers || []);
+    // Handle both direct array response and wrapped response
+    const papers = Array.isArray(data) ? data : (data.papers || data || []);
     console.log('[Fetch Papers] Got', papers.length, 'papers');
-    return papers;
+    
+    // Ensure all papers have required fields with safe defaults
+    const validPapers = papers.map((paper: any) => ({
+      id: paper.id || '',
+      title: paper.title || 'Untitled',
+      setup: paper.setup || { subject: '', class: '', examType: '', date: '', schoolName: '', instructions: '' },
+      questions: Array.isArray(paper.questions) ? paper.questions : [],
+      createdAt: paper.createdAt || new Date().toISOString(),
+      updatedAt: paper.updatedAt || new Date().toISOString(),
+      ...paper
+    }));
+    
+    return validPapers;
   } catch (error) {
     console.error('[Fetch Papers] Exception:', error);
     return [];
