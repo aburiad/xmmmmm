@@ -127,27 +127,35 @@ export default function Dashboard() {
     return map[classValue] || classValue;
   };
 
+  /**
+   * Strip corrupted Unicode escape sequences from text
+   * Removes patterns like u09ac, u09ba, etc that shouldn't be in the output
+   */
+  const stripCorruptedUnicode = (text: string) => {
+    if (!text) return '';
+    // Remove patterns like u09XX (corrupted unicode escape sequences)
+    return text.replace(/u[0-9a-fA-F]{4}/g, '').trim();
+  };
 
   /**
    * Recursively clean corrupted unicode from entire paper object
    */
-const cleanPaperData = (paper: QuestionPaper): QuestionPaper => {
-  return {
-    ...paper,
-    title: decodeUnicodeString(paper.title || ''),
-    setup: {
-      ...paper.setup,
-      subject: decodeUnicodeString(paper.setup.subject || ''),
-      schoolName: decodeUnicodeString(paper.setup.schoolName || ''),
-      instructions: decodeUnicodeString(paper.setup.instructions || ''),
-      class: paper.setup.class,
-      examType: paper.setup.examType,
-      date: paper.setup.date,
-    },
-    questions: Array.isArray(paper.questions) ? paper.questions : [],
+  const cleanPaperData = (paper: QuestionPaper): QuestionPaper => {
+    return {
+      ...paper,
+      title: stripCorruptedUnicode(paper.title || ''),
+      setup: {
+        ...paper.setup,
+        subject: stripCorruptedUnicode(paper.setup.subject || ''),
+        schoolName: stripCorruptedUnicode(paper.setup.schoolName || ''),
+        instructions: stripCorruptedUnicode(paper.setup.instructions || ''),
+        class: paper.setup.class,
+        examType: paper.setup.examType,
+        date: paper.setup.date,
+      },
+      questions: Array.isArray(paper.questions) ? paper.questions : [],
+    };
   };
-};
-
 
   function decodeUnicodeString(str: string): string {
     if (!str) return '';
@@ -156,6 +164,7 @@ const cleanPaperData = (paper: QuestionPaper): QuestionPaper => {
     });
   }
 
+  const displaySubject = decodeUnicodeString(papers.setup.subject);
 
   return (
     <div className="min-h-screen bg-slate-50 pb-safe">
