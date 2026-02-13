@@ -1,88 +1,57 @@
-import {
-  BookOpen,
-  Clock,
-  Copy,
-  Eye,
-  FileText,
-  GraduationCap,
-  LogOut,
-  MoreVertical,
-  Pencil,
-  Plus,
-  Settings,
-  Trash2,
-} from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { toast } from 'sonner';
-import { HelpDialog } from '../components/HelpDialog';
-import { FAB } from '../components/mobile/FAB';
-import { MobileCard } from '../components/mobile/MobileCard';
-import { MobileHeader } from '../components/mobile/MobileHeader';
-import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import { Badge } from '../components/ui/badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../components/ui/dropdown-menu';
-import { useIsMobile } from '../hooks/useIsMobile';
+import {
+  BookOpen,
+  Plus,
+  FileText,
+  MoreVertical,
+  Eye,
+  Pencil,
+  Copy,
+  Trash2,
+  GraduationCap,
+  Clock,
+  Settings,
+  LogOut,
+} from 'lucide-react';
 import { QuestionPaper } from '../types';
-import { deletePaper, duplicatePaper, loadPapers } from '../utils/storage';
+import { loadPapers, deletePaper, duplicatePaper } from '../utils/storage';
+import { toast } from 'sonner';
+import { HelpDialog } from '../components/HelpDialog';
+import { useIsMobile } from '../hooks/useIsMobile';
+import { MobileHeader } from '../components/mobile/MobileHeader';
+import { FAB } from '../components/mobile/FAB';
+import { MobileCard, MobileCardHeader, MobileCardContent, MobileCardFooter } from '../components/mobile/MobileCard';
 
 export default function Dashboard() {
   const [papers, setPapers] = useState<QuestionPaper[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
   useEffect(() => {
-    // Load papers from WordPress on mount
-    const loadData = async () => {
-      setIsLoading(true);
-      try {
-        const loadedPapers = await loadPapers();
-        // Clean corrupted unicode from all papers
-        const cleanedPapers = loadedPapers.map(p => cleanPaperData(p));
-        setPapers(cleanedPapers);
-      } catch (error) {
-        console.error('Error loading papers:', error);
-        toast.error('Failed to load papers');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    loadData();
+    setPapers(loadPapers());
   }, []);
 
-  const handleDelete = async (id: string) => {
-    try {
-      await deletePaper(id);
-      const updatedPapers = await loadPapers();
-      const cleanedPapers = updatedPapers.map(p => cleanPaperData(p));
-      setPapers(cleanedPapers);
-      toast.success('Question paper deleted');
-    } catch (error) {
-      console.error('Error deleting paper:', error);
-      toast.error('Failed to delete paper');
-    }
+  const handleDelete = (id: string) => {
+    deletePaper(id);
+    setPapers(loadPapers());
+    toast.success('Question paper deleted');
   };
 
-  const handleDuplicate = async (id: string) => {
-    try {
-      const newPaper = await duplicatePaper(id);
-      if (newPaper) {
-        const updatedPapers = await loadPapers();
-        const cleanedPapers = updatedPapers.map(p => cleanPaperData(p));
-        setPapers(cleanedPapers);
-        toast.success('Question paper duplicated');
-      }
-    } catch (error) {
-      console.error('Error duplicating paper:', error);
-      toast.error('Failed to duplicate paper');
+  const handleDuplicate = (id: string) => {
+    const newPaper = duplicatePaper(id);
+    if (newPaper) {
+      setPapers(loadPapers());
+      toast.success('Question paper duplicated');
     }
   };
 
@@ -103,68 +72,6 @@ export default function Dashboard() {
     };
     return map[type] || type;
   };
-
-  const getSubjectBangla = (subject: string) => {
-    const map: Record<string, string> = {
-      'math': 'গণিত',
-      'science': 'বিজ্ঞান',
-      'bangla': 'বাংলা',
-      'english': 'ইংরেজি',
-      'ict': 'তথ্য ও যোগাযোগ প্রযুক্তি',
-      'custom': 'অন্যান্য',
-    };
-    return map[subject] || subject;
-  };
-
-  const getClassBangla = (classValue: string) => {
-    const map: Record<string, string> = {
-      '6': '৬',
-      '7': '৭',
-      '8': '৮',
-      '9': '৯',
-      '10': '১০',
-    };
-    return map[classValue] || classValue;
-  };
-
-  /**
-   * Strip corrupted Unicode escape sequences from text
-   * Removes patterns like u09ac, u09ba, etc that shouldn't be in the output
-   */
-  const stripCorruptedUnicode = (text: string) => {
-    if (!text) return '';
-    // Remove patterns like u09XX (corrupted unicode escape sequences)
-    return text.replace(/u[0-9a-fA-F]{4}/g, '').trim();
-  };
-
-  /**
-   * Recursively clean corrupted unicode from entire paper object
-   */
-  const cleanPaperData = (paper: QuestionPaper): QuestionPaper => {
-    return {
-      ...paper,
-      title: stripCorruptedUnicode(paper.title || ''),
-      setup: {
-        ...paper.setup,
-        subject: stripCorruptedUnicode(paper.setup.subject || ''),
-        schoolName: stripCorruptedUnicode(paper.setup.schoolName || ''),
-        instructions: stripCorruptedUnicode(paper.setup.instructions || ''),
-        class: paper.setup.class,
-        examType: paper.setup.examType,
-        date: paper.setup.date,
-      },
-      questions: Array.isArray(paper.questions) ? paper.questions : [],
-    };
-  };
-
-  function decodeUnicodeString(str: string): string {
-    if (!str) return '';
-    return str.replace(/u([0-9a-fA-F]{4})/g, (_, hex) => {
-      return String.fromCharCode(parseInt(hex, 16));
-    });
-  }
-
-  const displaySubject = decodeUnicodeString(papers.setup.subject);
 
   return (
     <div className="min-h-screen bg-slate-50 pb-safe">
@@ -268,10 +175,10 @@ export default function Dashboard() {
                           onClick={() => navigate(`/builder/${paper.id}`)}
                         >
                           <CardTitle className={`mb-1 group-hover:text-blue-600 transition-colors font-['Noto_Sans_Bengali'] ${isMobile ? 'text-base' : 'text-base'}`}>
-                            {stripCorruptedUnicode(`শ্রেণি ${getClassBangla(paper.setup.class)}`)}
+                            {paper.setup.subject} - শ্রেণি {paper.setup.class}
                           </CardTitle>
                           <CardDescription className="text-sm font-['Noto_Sans_Bengali']">
-                            {stripCorruptedUnicode(getExamTypeBangla(paper.setup.examType))}
+                            {getExamTypeBangla(paper.setup.examType)}
                           </CardDescription>
                         </div>
                         <DropdownMenu>
