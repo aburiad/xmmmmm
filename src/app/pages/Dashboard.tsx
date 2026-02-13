@@ -164,7 +164,7 @@ export default function Dashboard() {
     });
   }
 
-  const displaySubject = decodeUnicodeString(paper.setup.subject);
+  const displaySubject = decodeUnicodeString(papers.setup.subject);
 
   return (
     <div className="min-h-screen bg-slate-50 pb-safe">
