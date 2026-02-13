@@ -1,10 +1,16 @@
 import {
   BookOpen,
   Clock,
+  Copy,
+  Eye,
   FileText,
   GraduationCap,
   LogOut,
-  Plus
+  MoreVertical,
+  Pencil,
+  Plus,
+  Settings,
+  Trash2,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
@@ -12,9 +18,16 @@ import { toast } from 'sonner';
 import { HelpDialog } from '../components/HelpDialog';
 import { FAB } from '../components/mobile/FAB';
 import { MobileCard } from '../components/mobile/MobileCard';
+import { MobileHeader } from '../components/mobile/MobileHeader';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../components/ui/dropdown-menu';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { QuestionPaper } from '../types';
 import { deletePaper, duplicatePaper, loadPapers } from '../utils/storage';
@@ -25,33 +38,14 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
-  /* ✅ Proper Unicode Decoder */
-  const decodeUnicodeString = (str: string): string => {
-    if (!str) return '';
-    return str.replace(/u([0-9a-fA-F]{4})/g, (_, hex) =>
-      String.fromCharCode(parseInt(hex, 16))
-    );
-  };
-
-  /* ✅ Clean Entire Paper Object */
-  const cleanPaperData = (paper: QuestionPaper): QuestionPaper => ({
-    ...paper,
-    title: decodeUnicodeString(paper.title || ''),
-    setup: {
-      ...paper.setup,
-      subject: decodeUnicodeString(paper.setup.subject || ''),
-      schoolName: decodeUnicodeString(paper.setup.schoolName || ''),
-      instructions: decodeUnicodeString(paper.setup.instructions || ''),
-    },
-    questions: Array.isArray(paper.questions) ? paper.questions : [],
-  });
-
   useEffect(() => {
+    // Load papers from WordPress on mount
     const loadData = async () => {
       setIsLoading(true);
       try {
         const loadedPapers = await loadPapers();
-        const cleanedPapers = loadedPapers.map(cleanPaperData);
+        // Clean corrupted unicode from all papers
+        const cleanedPapers = loadedPapers.map(p => cleanPaperData(p));
         setPapers(cleanedPapers);
       } catch (error) {
         console.error('Error loading papers:', error);
@@ -60,7 +54,7 @@ export default function Dashboard() {
         setIsLoading(false);
       }
     };
-
+    
     loadData();
   }, []);
 
@@ -68,26 +62,34 @@ export default function Dashboard() {
     try {
       await deletePaper(id);
       const updatedPapers = await loadPapers();
-      setPapers(updatedPapers.map(cleanPaperData));
+      const cleanedPapers = updatedPapers.map(p => cleanPaperData(p));
+      setPapers(cleanedPapers);
       toast.success('Question paper deleted');
     } catch (error) {
+      console.error('Error deleting paper:', error);
       toast.error('Failed to delete paper');
     }
   };
 
   const handleDuplicate = async (id: string) => {
     try {
-      await duplicatePaper(id);
-      const updatedPapers = await loadPapers();
-      setPapers(updatedPapers.map(cleanPaperData));
-      toast.success('Question paper duplicated');
+      const newPaper = await duplicatePaper(id);
+      if (newPaper) {
+        const updatedPapers = await loadPapers();
+        const cleanedPapers = updatedPapers.map(p => cleanPaperData(p));
+        setPapers(cleanedPapers);
+        toast.success('Question paper duplicated');
+      }
     } catch (error) {
+      console.error('Error duplicating paper:', error);
       toast.error('Failed to duplicate paper');
     }
   };
 
   const handleLogout = () => {
-    localStorage.clear();
+    localStorage.removeItem('isAuthenticated');
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('userName');
     navigate('/login');
     toast.info('Logged out successfully');
   };
@@ -102,6 +104,18 @@ export default function Dashboard() {
     return map[type] || type;
   };
 
+  const getSubjectBangla = (subject: string) => {
+    const map: Record<string, string> = {
+      'math': 'গণিত',
+      'science': 'বিজ্ঞান',
+      'bangla': 'বাংলা',
+      'english': 'ইংরেজি',
+      'ict': 'তথ্য ও যোগাযোগ প্রযুক্তি',
+      'custom': 'অন্যান্য',
+    };
+    return map[subject] || subject;
+  };
+
   const getClassBangla = (classValue: string) => {
     const map: Record<string, string> = {
       '6': '৬',
@@ -113,101 +127,205 @@ export default function Dashboard() {
     return map[classValue] || classValue;
   };
 
+
+  /**
+   * Recursively clean corrupted unicode from entire paper object
+   */
+const cleanPaperData = (paper: QuestionPaper): QuestionPaper => {
+  return {
+    ...paper,
+    title: decodeUnicodeString(paper.title || ''),
+    setup: {
+      ...paper.setup,
+      subject: decodeUnicodeString(paper.setup.subject || ''),
+      schoolName: decodeUnicodeString(paper.setup.schoolName || ''),
+      instructions: decodeUnicodeString(paper.setup.instructions || ''),
+      class: paper.setup.class,
+      examType: paper.setup.examType,
+      date: paper.setup.date,
+    },
+    questions: Array.isArray(paper.questions) ? paper.questions : [],
+  };
+};
+
+
+  function decodeUnicodeString(str: string): string {
+    if (!str) return '';
+    return str.replace(/u([0-9a-fA-F]{4})/g, (_, hex) => {
+      return String.fromCharCode(parseInt(hex, 16));
+    });
+  }
+
+
   return (
     <div className="min-h-screen bg-slate-50 pb-safe">
-
-      {/* Desktop Header */}
+      {/* Desktop Header - Hidden on Mobile */}
       {!isMobile && (
-        <div className="bg-white border-b sticky top-0 z-10">
-          <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <div className="bg-blue-600 p-2 rounded-lg">
-                <BookOpen className="w-6 h-6 text-white" />
+        <div className="bg-white border-b border-slate-200 sticky top-0 z-10">
+          <div className="max-w-7xl mx-auto px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-gradient-to-br from-blue-600 to-blue-700 p-2.5 rounded-lg">
+                  <BookOpen className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-semibold text-slate-900">বাংলাদেশ বোর্ড প্রশ্নপত্র জেনারেটর</h1>
+                  <p className="text-sm text-slate-500">Question Paper Generator</p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-xl font-semibold">বাংলাদেশ বোর্ড প্রশ্নপত্র জেনারেটর</h1>
-                <p className="text-sm text-slate-500">Question Paper Generator</p>
+              <div className="flex items-center gap-3">
+                <HelpDialog />
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={handleLogout} 
+                  className="text-slate-500 hover:text-slate-900"
+                  title="Logout"
+                >
+                  <LogOut className="w-5 h-5" />
+                </Button>
+                <Button 
+                  onClick={() => navigate('/setup')}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  নতুন প্রশ্নপত্র তৈরি করুন
+                </Button>
               </div>
-            </div>
-
-            <div className="flex gap-3 items-center">
-              <HelpDialog />
-              <Button variant="ghost" size="icon" onClick={handleLogout}>
-                <LogOut className="w-5 h-5" />
-              </Button>
-              <Button onClick={() => navigate('/setup')}>
-                <Plus className="w-4 h-4 mr-2" />
-                নতুন প্রশ্নপত্র তৈরি করুন
-              </Button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Main Content */}
+      {/* Mobile Header */}
+      {isMobile && (
+        <MobileHeader
+          title="প্রশ্নপত্র জেনারেটর"
+          subtitle="Question Paper Generator"
+          action={
+            <div className="flex items-center gap-1">
+              <HelpDialog />
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={handleLogout} 
+                className="h-10 w-10 text-slate-500"
+              >
+                <LogOut className="w-5 h-5" />
+              </Button>
+            </div>
+          }
+        />
+      )}
+
+      {/* Main Content - Same for both Mobile and Desktop */}
       <div className={`max-w-7xl mx-auto ${isMobile ? 'px-4 py-4' : 'px-6 py-8'}`}>
         {papers.length === 0 ? (
-          <div className="text-center py-16">
-            <FileText className="w-10 h-10 mx-auto text-slate-400 mb-4" />
-            <h2 className="text-xl font-medium">কোন প্রশ্নপত্র নেই</h2>
-            <p className="text-slate-500 mb-6">নতুন একটি প্রশ্নপত্র তৈরি করে শুরু করুন</p>
-            <Button onClick={() => navigate('/setup')}>
-              <Plus className="w-4 h-4 mr-2" />
-              প্রথম প্রশ্নপত্র তৈরি করুন
-            </Button>
+          <div className={`text-center ${isMobile ? 'py-12' : 'py-16'}`}>
+            <div className="bg-white rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4 shadow-sm">
+              <FileText className="w-10 h-10 text-slate-400" />
+            </div>
+            <h2 className="text-xl font-medium text-slate-700 mb-2 font-['Noto_Sans_Bengali']">কোন প্রশ্নপত্র নেই</h2>
+            <p className="text-slate-500 mb-6 font-['Noto_Sans_Bengali']">নতুন একটি প্রশ্নপত্র তৈরি করে শুরু করুন</p>
+            {!isMobile && (
+              <Button 
+                onClick={() => navigate('/setup')}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                প্রথম প্রশ্নপত্র তৈরি করুন
+              </Button>
+            )}
           </div>
         ) : (
           <>
             <div className="mb-6">
-              <h2 className="font-semibold text-lg">
+              <h2 className={`font-semibold text-slate-900 font-['Noto_Sans_Bengali'] ${isMobile ? 'text-base' : 'text-lg'}`}>
                 আপনার প্রশ্নপত্রসমূহ
               </h2>
-              <p className="text-sm text-slate-500">
-                মোট {papers.length}টি প্রশ্নপত্র
-              </p>
+              <p className="text-sm text-slate-500 font-['Noto_Sans_Bengali']">মোট {papers.length}টি প্রশ্নপত্র</p>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {papers.map((paper) => {
                 const CardComponent = isMobile ? MobileCard : Card;
-
+                
                 return (
-                  <CardComponent key={paper.id} className="hover:shadow-md group">
-                    <CardHeader>
-                      <CardTitle className="mb-1 group-hover:text-blue-600 transition-colors">
-                        শ্রেণি {getClassBangla(paper.setup.class)}
-                      </CardTitle>
-                      <CardDescription>
-                        {getExamTypeBangla(paper.setup.examType)}
-                      </CardDescription>
+                  <CardComponent key={paper.id} className="hover:shadow-md transition-shadow group">
+                    <CardHeader className={`pb-3 ${isMobile ? 'p-4' : ''}`}>
+                      <div className="flex items-start justify-between">
+                        <div 
+                          className="flex-1 cursor-pointer"
+                          onClick={() => navigate(`/builder/${paper.id}`)}
+                        >
+                          <CardTitle className={`mb-1 group-hover:text-blue-600 transition-colors font-['Noto_Sans_Bengali'] ${isMobile ? 'text-base' : 'text-base'}`}>
+                            {stripCorruptedUnicode(`শ্রেণি ${getClassBangla(paper.setup.class)}`)}
+                          </CardTitle>
+                          <CardDescription className="text-sm font-['Noto_Sans_Bengali']">
+                            {stripCorruptedUnicode(getExamTypeBangla(paper.setup.examType))}
+                          </CardDescription>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className={`p-0 ${isMobile ? 'h-10 w-10' : 'h-8 w-8'}`}>
+                              <MoreVertical className={isMobile ? 'w-5 h-5' : 'w-4 h-4'} />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => navigate(`/preview/${paper.id}`)}>
+                              <Eye className="w-4 h-4 mr-2" />
+                              <span className="font-['Noto_Sans_Bengali']">প্রিভিউ দেখুন</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => navigate(`/setup/${paper.id}`)}>
+                              <Settings className="w-4 h-4 mr-2" />
+                              <span className="font-['Noto_Sans_Bengali']">সেটআপ এডিট করুন</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => navigate(`/builder/${paper.id}`)}>
+                              <Pencil className="w-4 h-4 mr-2" />
+                              <span className="font-['Noto_Sans_Bengali']">প্রশ্ন সম্পাদনা করুন</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDuplicate(paper.id)}>
+                              <Copy className="w-4 h-4 mr-2" />
+                              <span className="font-['Noto_Sans_Bengali']">কপি করুন</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => handleDelete(paper.id)}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              <span className="font-['Noto_Sans_Bengali']">মুছে ফেলুন</span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </CardHeader>
-
-                    <CardContent>
+                    <CardContent 
+                      className={`cursor-pointer ${isMobile ? 'p-4 pt-0' : ''}`}
+                      onClick={() => navigate(`/builder/${paper.id}`)}
+                    >
                       <div className="space-y-3">
-
-                        <div className="flex gap-2 flex-wrap">
-                          <Badge variant="secondary">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge variant="secondary" className="text-xs font-['Noto_Sans_Bengali']">
                             {getExamTypeBangla(paper.setup.examType)}
                           </Badge>
-                          <Badge variant="outline">
+                          <Badge variant="outline" className="text-xs font-['Noto_Sans_Bengali']">
                             <GraduationCap className="w-3 h-3 mr-1" />
                             {paper.questions.length} প্রশ্ন
                           </Badge>
                         </div>
-
-                        <div className="flex justify-between text-sm text-slate-600">
+                        
+                        <div className="flex items-center justify-between text-sm text-slate-600 font-['Noto_Sans_Bengali']">
                           <div className="flex items-center gap-1">
                             <Clock className="w-3.5 h-3.5" />
-                            {paper.setup.timeMinutes} মিনিট
+                            <span>{paper.setup.timeMinutes} মিনিট</span>
                           </div>
-                          <div>
+                          <div className="font-medium">
                             মোট নম্বর: {paper.setup.totalMarks}
                           </div>
                         </div>
 
-                        <div className="text-xs text-slate-400 border-t pt-2">
-                          শেষ আপডেট:{' '}
-                          {new Date(paper.updatedAt).toLocaleDateString('bn-BD')}
+                        <div className="text-xs text-slate-400 pt-2 border-t">
+                          শেষ আপডেট: {new Date(paper.updatedAt).toLocaleDateString('bn-BD')}
                         </div>
                       </div>
                     </CardContent>
@@ -219,8 +337,9 @@ export default function Dashboard() {
         )}
       </div>
 
+      {/* Floating Action Button - Mobile Only */}
       {isMobile && (
-        <FAB
+        <FAB 
           onClick={() => navigate('/setup')}
           label="নতুন প্রশ্নপত্র তৈরি করুন"
         />
