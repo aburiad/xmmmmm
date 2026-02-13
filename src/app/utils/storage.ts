@@ -4,6 +4,13 @@ import * as wpApi from './wpApiService';
 const STORAGE_KEY = 'bd-board-question-papers';
 
 /**
+ * Debug helper - log storage operations
+ */
+const debugLog = (message: string, data?: any) => {
+  console.log(`[Storage Debug] ${message}`, data || '');
+};
+
+/**
  * Save paper to WordPress (primary storage)
  * localStorage is used only as temporary cache
  */
@@ -113,22 +120,35 @@ export const savePaper = async (paper: QuestionPaper) => {
     
     // If paper has a numeric ID, it's already in WordPress - update it
     if (paper.id && /^\d+$/.test(paper.id)) {
-      await wpApi.updatePaperInWordPress(
+      debugLog('Updating existing paper in WordPress:', paper.id);
+      const updateResult = await wpApi.updatePaperInWordPress(
         paper.id,
         paper.setup?.schoolName || 'Untitled Paper',
         paper,
         {}
       );
+      
+      if (!updateResult.success) {
+        debugLog('Update failed, error:', updateResult.error);
+        console.warn(`Failed to update paper in WordPress: ${updateResult.error}`);
+      }
     } else {
       // New paper - save to WordPress first
+      debugLog('Saving new paper to WordPress:', paper.setup?.schoolName);
       const result = await wpApi.savePaperToWordPress(
         paper.setup?.schoolName || 'Untitled Paper',
         paper,
         {}
       );
       
+      debugLog('Save result:', result);
+      
       if (result.success && result.id) {
         savedPaper.id = result.id.toString();
+        debugLog('Paper saved successfully with ID:', result.id);
+      } else {
+        console.warn(`Failed to save paper to WordPress: ${result.error}`);
+        // Continue anyway - will use localStorage as fallback
       }
     }
     

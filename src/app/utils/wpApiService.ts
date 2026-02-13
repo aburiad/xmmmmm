@@ -3,7 +3,12 @@
  * Handles all communication with WordPress REST API for paper storage
  */
 
+// Try both possible API endpoints
 const API_BASE_URL = 'https://ahsan.ronybormon.com/wp-json/qpm/v1';
+const API_FALLBACK_URL = 'https://ahsan.ronybormon.com/wp-json/qpm/v1';
+
+// Test if API is available
+let apiAvailable = true;
 
 // Get auth token from localStorage
 const getAuthToken = () => {
@@ -29,7 +34,37 @@ const getHeaders = () => {
  */
 const handleError = (error: any) => {
   console.error('API Error:', error);
-  throw new Error(error.message || 'API request failed');
+  // Return error details without throwing
+  return {
+    success: false,
+    error: error.message || 'API request failed'
+  };
+};
+
+/**
+ * Check if API is available
+ */
+const checkApiAvailability = async () => {
+  try {
+    console.log('[API Check] Testing endpoint:', `${API_BASE_URL}/papers`);
+    const response = await fetch(`${API_BASE_URL}/papers`, {
+      method: 'GET',
+      headers: getHeaders(),
+    });
+    
+    apiAvailable = response.ok || response.status !== 404;
+    console.log('[API Check] Status:', response.status, 'Available:', apiAvailable);
+    
+    if (!response.ok && response.status === 404) {
+      console.error('[API Check] 404 Error - Plugin might not be activated. Check WordPress admin panel.');
+    }
+    
+    return apiAvailable;
+  } catch (error) {
+    console.warn('[API Check] Network error:', error);
+    apiAvailable = false;
+    return false;
+  }
 };
 
 /**
@@ -81,6 +116,22 @@ export const fetchPaperById = async (id: string) => {
  */
 export const savePaperToWordPress = async (title: string, data: any, pageSettings: any) => {
   try {
+    console.log('[Save Paper] Starting save operation for:', title);
+    console.log('[Save Paper] API URL:', `${API_BASE_URL}/papers`);
+    
+    // Check API availability
+    const isAvailable = await checkApiAvailability();
+    if (!isAvailable) {
+      const errMsg = 'WordPress API not available. Plugin may not be activated on https://ahsan.ronybormon.com';
+      console.error('[Save Paper]', errMsg);
+      return { 
+        success: false, 
+        error: errMsg,
+        id: null
+      };
+    }
+
+    console.log('[Save Paper] API available, proceeding with save');
     const response = await fetch(`${API_BASE_URL}/papers`, {
       method: 'POST',
       headers: getHeaders(),
@@ -91,19 +142,46 @@ export const savePaperToWordPress = async (title: string, data: any, pageSetting
       }),
     });
     
+    console.log('[Save Paper] Response status:', response.status);
+    
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorData = await response.json().catch(() => ({}));
+      const errMsg = `HTTP error! status: ${response.status}`;
+      console.error('[Save Paper] Error:', errMsg);
+      console.error('[Save Paper] Error details:', errorData);
+      
+      if (response.status === 404) {
+        console.error('[Save Paper] 404 Not Found - Plugin is not activated!');
+        console.error('[Save Paper] Steps to fix:');
+        console.error('[Save Paper]   1. Upload plugin to /wp-content/plugins/');
+        console.error('[Save Paper]   2. Go to WordPress Admin > Plugins');
+        console.error('[Save Paper]   3. Activate "Question Paper PDF Generator"');
+        console.error('[Save Paper]   4. Refresh this page');
+      }
+      
+      return { 
+        success: false, 
+        error: errMsg,
+        id: null
+      };
     }
     
     const result = await response.json();
+    console.log('[Save Paper] Success! Paper ID:', result.post_id);
+    
     return {
       success: true,
       id: result.post_id,
       ...result,
     };
   } catch (error) {
-    handleError(error);
-    return { success: false };
+    const errMsg = (error as Error).message || 'Unknown error';
+    console.error('[Save Paper] Exception:', errMsg);
+    return { 
+      success: false, 
+      error: errMsg,
+      id: null
+    };
   }
 };
 
