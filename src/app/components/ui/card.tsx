@@ -2,6 +2,32 @@ import * as React from "react";
 
 import { cn } from "./utils";
 
+/**
+ * Sanitize text by removing corrupted unicode escape sequences
+ * Removes patterns like u09ac, u09ba, etc
+ */
+const sanitizeText = (text: any): string => {
+  if (!text) return '';
+  if (typeof text !== 'string') return text;
+  return text.replace(/u[0-9a-fA-F]{4}/g, '').trim();
+};
+
+/**
+ * Recursively sanitize children
+ */
+const sanitizeChildren = (children: any): any => {
+  if (typeof children === 'string') {
+    return sanitizeText(children);
+  }
+  if (Array.isArray(children)) {
+    return children.map(sanitizeChildren);
+  }
+  if (React.isValidElement(children)) {
+    return React.cloneElement(children, {}, sanitizeChildren(children.props.children));
+  }
+  return children;
+};
+
 const Card = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div">
@@ -41,13 +67,15 @@ CardHeader.displayName = "CardHeader";
 const CardTitle = React.forwardRef<
   HTMLHeadingElement,
   React.ComponentProps<"h4">
->(({ className, ...props }, ref) => {
+>(({ className, children, ...props }, ref) => {
   return (
     <h4
       ref={ref}
       className={cn(className)}
       {...props}
-    />
+    >
+      {sanitizeChildren(children)}
+    </h4>
   );
 });
 CardTitle.displayName = "CardTitle";
@@ -55,14 +83,15 @@ CardTitle.displayName = "CardTitle";
 const CardDescription = React.forwardRef<
   HTMLParagraphElement,
   React.ComponentProps<"p">
->(({ className, ...props }, ref) => {
+>(({ className, children, ...props }, ref) => {
   return (
     <p
       ref={ref}
-      data-slot="card-description"
       className={cn("text-muted-foreground", className)}
       {...props}
-    />
+    >
+      {sanitizeChildren(children)}
+    </p>
   );
 });
 CardDescription.displayName = "CardDescription";
