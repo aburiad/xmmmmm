@@ -11,6 +11,31 @@ const debugLog = (message: string, data?: any) => {
 };
 
 /**
+ * Ensure paper has all required fields with safe defaults
+ */
+const ensurePaperStructure = (paper: any): QuestionPaper => {
+  if (!paper || typeof paper !== 'object') {
+    throw new Error('Invalid paper object');
+  }
+  
+  return {
+    id: paper.id || '',
+    title: paper.title || 'Untitled',
+    setup: {
+      subject: paper.setup?.subject || '',
+      class: paper.setup?.class || '',
+      examType: paper.setup?.examType || 'class-test',
+      date: paper.setup?.date || new Date().toISOString().split('T')[0],
+      schoolName: paper.setup?.schoolName || '',
+      instructions: paper.setup?.instructions || '',
+    },
+    questions: Array.isArray(paper.questions) ? paper.questions : [],
+    createdAt: paper.createdAt || new Date().toISOString(),
+    updatedAt: paper.updatedAt || new Date().toISOString(),
+  };
+};
+
+/**
  * Save paper to WordPress (primary storage)
  * localStorage is used only as temporary cache
  */
@@ -64,10 +89,20 @@ export const loadPapers = async (): Promise<QuestionPaper[]> => {
     const papersArray = Array.isArray(papers) ? papers : [];
     debugLog('Loaded from API:', papersArray.length, 'papers');
     
+    // Validate and fix structure of all papers
+    const validPapers = papersArray.map(p => {
+      try {
+        return ensurePaperStructure(p);
+      } catch (e) {
+        console.warn('Invalid paper structure, skipping:', p);
+        return null;
+      }
+    }).filter((p): p is QuestionPaper => p !== null);
+    
     // Cache in localStorage for offline/performance
-    if (papersArray && papersArray.length > 0) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(papersArray));
-      debugLog('Cached', papersArray.length, 'papers in localStorage');
+    if (validPapers && validPapers.length > 0) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(validPapers));
+      debugLog('Cached', validPapers.length, 'papers in localStorage');
     } else {
       // If no papers in WordPress, check localStorage cache
       debugLog('No papers from API, checking localStorage cache');
@@ -75,8 +110,20 @@ export const loadPapers = async (): Promise<QuestionPaper[]> => {
       if (cachedData) {
         try {
           const cached = JSON.parse(cachedData);
-          debugLog('Using cached papers:', Array.isArray(cached) ? cached.length : 0, 'papers');
-          return Array.isArray(cached) ? cached : [];
+          const cachedArray = Array.isArray(cached) ? cached : [];
+          
+          // Validate cached papers structure
+          const validCached = cachedArray.map(p => {
+            try {
+              return ensurePaperStructure(p);
+            } catch (e) {
+              console.warn('Invalid cached paper structure:', p);
+              return null;
+            }
+          }).filter((p): p is QuestionPaper => p !== null);
+          
+          debugLog('Using cached papers:', validCached.length, 'papers');
+          return validCached;
         } catch (parseError) {
           console.error('Error parsing cached data:', parseError);
           return [];
@@ -86,8 +133,8 @@ export const loadPapers = async (): Promise<QuestionPaper[]> => {
     }
     
     // Debug: Log table blocks when loading
-    if (Array.isArray(papersArray)) {
-      papersArray.forEach((paper: QuestionPaper, pidx: number) => {
+    if (Array.isArray(validPapers)) {
+      validPapers.forEach((paper: QuestionPaper, pidx: number) => {
         if (paper && paper.questions && Array.isArray(paper.questions)) {
           paper.questions.forEach((q, qidx) => {
             if (q && q.blocks && Array.isArray(q.blocks)) {
@@ -107,7 +154,7 @@ export const loadPapers = async (): Promise<QuestionPaper[]> => {
       });
     }
     
-    return papersArray;
+    return validPapers;
   } catch (error) {
     console.error('Error loading papers from WordPress:', error);
     // Fallback to localStorage cache if API fails
@@ -115,8 +162,19 @@ export const loadPapers = async (): Promise<QuestionPaper[]> => {
       const cachedData = localStorage.getItem(STORAGE_KEY);
       if (cachedData) {
         const cached = JSON.parse(cachedData);
-        debugLog('Using localStorage fallback, papers:', Array.isArray(cached) ? cached.length : 0);
-        return Array.isArray(cached) ? cached : [];
+        const cachedArray = Array.isArray(cached) ? cached : [];
+        
+        // Validate cached papers structure
+        const validCached = cachedArray.map(p => {
+          try {
+            return ensurePaperStructure(p);
+          } catch (e) {
+            return null;
+          }
+        }).filter((p): p is QuestionPaper => p !== null);
+        
+        debugLog('Using localStorage fallback, papers:', validCached.length);
+        return validCached;
       }
       return [];
     } catch (cacheError) {
