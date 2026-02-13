@@ -1,57 +1,109 @@
-import { useState, useEffect } from 'react';
+import {
+  BookOpen,
+  Clock,
+  Copy,
+  Eye,
+  FileText,
+  GraduationCap,
+  LogOut,
+  MoreVertical,
+  Pencil,
+  Plus,
+  Settings,
+  Trash2,
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
+import { toast } from 'sonner';
+import { HelpDialog } from '../components/HelpDialog';
+import { FAB } from '../components/mobile/FAB';
+import { MobileCard } from '../components/mobile/MobileCard';
+import { MobileHeader } from '../components/mobile/MobileHeader';
+import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Badge } from '../components/ui/badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../components/ui/dropdown-menu';
-import {
-  BookOpen,
-  Plus,
-  FileText,
-  MoreVertical,
-  Eye,
-  Pencil,
-  Copy,
-  Trash2,
-  GraduationCap,
-  Clock,
-  Settings,
-  LogOut,
-} from 'lucide-react';
-import { QuestionPaper } from '../types';
-import { loadPapers, deletePaper, duplicatePaper } from '../utils/storage';
-import { toast } from 'sonner';
-import { HelpDialog } from '../components/HelpDialog';
 import { useIsMobile } from '../hooks/useIsMobile';
-import { MobileHeader } from '../components/mobile/MobileHeader';
-import { FAB } from '../components/mobile/FAB';
-import { MobileCard, MobileCardHeader, MobileCardContent, MobileCardFooter } from '../components/mobile/MobileCard';
+import { QuestionPaper } from '../types';
+import { deletePaper, duplicatePaper, loadPapers } from '../utils/storage';
 
 export default function Dashboard() {
   const [papers, setPapers] = useState<QuestionPaper[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
-  useEffect(() => {
-    setPapers(loadPapers());
-  }, []);
-
-  const handleDelete = (id: string) => {
-    deletePaper(id);
-    setPapers(loadPapers());
-    toast.success('Question paper deleted');
+  const stripCorruptedUnicode = (text: string) => {
+    if (!text) return '';
+    return text.replace(/u[0-9a-fA-F]{4}/g, '').trim();
   };
 
-  const handleDuplicate = (id: string) => {
-    const newPaper = duplicatePaper(id);
-    if (newPaper) {
-      setPapers(loadPapers());
-      toast.success('Question paper duplicated');
+  const cleanPaperData = (paper: QuestionPaper): QuestionPaper => {
+    return {
+      ...paper,
+      title: stripCorruptedUnicode(paper.title || ''),
+      setup: {
+        ...paper.setup,
+        subject: stripCorruptedUnicode(paper.setup.subject || ''),
+        schoolName: stripCorruptedUnicode(paper.setup.schoolName || ''),
+        instructions: stripCorruptedUnicode(paper.setup.instructions || ''),
+        class: paper.setup.class,
+        examType: paper.setup.examType,
+        date: paper.setup.date,
+      },
+      questions: Array.isArray(paper.questions) ? paper.questions : [],
+    };
+  };
+
+  useEffect(() => {
+    const loadData = async () => {
+      setIsLoading(true);
+      try {
+        const loadedPapers = await loadPapers();
+        const papersArray = Array.isArray(loadedPapers) ? loadedPapers : [];
+        const cleanedPapers = papersArray.map(p => cleanPaperData(p));
+        setPapers(cleanedPapers);
+      } catch (error) {
+        console.error('Error loading papers:', error);
+        toast.error('Failed to load papers');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadData();
+  }, []);
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deletePaper(id);
+      const updatedPapers = await loadPapers();
+      const cleanedPapers = updatedPapers.map(p => cleanPaperData(p));
+      setPapers(cleanedPapers);
+      toast.success('Question paper deleted');
+    } catch (error) {
+      console.error('Error deleting paper:', error);
+      toast.error('Failed to delete paper');
+    }
+  };
+
+  const handleDuplicate = async (id: string) => {
+    try {
+      const newPaper = await duplicatePaper(id);
+      if (newPaper) {
+        const updatedPapers = await loadPapers();
+        const cleanedPapers = updatedPapers.map(p => cleanPaperData(p));
+        setPapers(cleanedPapers);
+        toast.success('Question paper duplicated');
+      }
+    } catch (error) {
+      console.error('Error duplicating paper:', error);
+      toast.error('Failed to duplicate paper');
     }
   };
 
@@ -73,9 +125,27 @@ export default function Dashboard() {
     return map[type] || type;
   };
 
+  const getClassBangla = (classValue: string) => {
+    const map: Record<string, string> = {
+      '6': '৬',
+      '7': '৭',
+      '8': '৮',
+      '9': '৯',
+      '10': '১০',
+    };
+    return map[classValue] || classValue;
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 pb-safe">
-      {/* Desktop Header - Hidden on Mobile */}
       {!isMobile && (
         <div className="bg-white border-b border-slate-200 sticky top-0 z-10">
           <div className="max-w-7xl mx-auto px-6 py-4">
@@ -113,7 +183,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Mobile Header */}
       {isMobile && (
         <MobileHeader
           title="প্রশ্নপত্র জেনারেটর"
@@ -134,7 +203,6 @@ export default function Dashboard() {
         />
       )}
 
-      {/* Main Content - Same for both Mobile and Desktop */}
       <div className={`max-w-7xl mx-auto ${isMobile ? 'px-4 py-4' : 'px-6 py-8'}`}>
         {papers.length === 0 ? (
           <div className={`text-center ${isMobile ? 'py-12' : 'py-16'}`}>
@@ -175,10 +243,16 @@ export default function Dashboard() {
                           onClick={() => navigate(`/builder/${paper.id}`)}
                         >
                           <CardTitle className={`mb-1 group-hover:text-blue-600 transition-colors font-['Noto_Sans_Bengali'] ${isMobile ? 'text-base' : 'text-base'}`}>
-                            {paper.setup.subject} - শ্রেণি {paper.setup.class}
+                            {stripCorruptedUnicode(`শ্রেণি ${getClassBangla(paper.setup.class)}`)}
                           </CardTitle>
+
+                          {/* Subject Name added here */}
+                          <div className="text-sm font-semibold text-blue-600 font-['Noto_Sans_Bengali'] mb-1">
+                            বিষয়: {stripCorruptedUnicode(paper.setup.subject)}
+                          </div>
+
                           <CardDescription className="text-sm font-['Noto_Sans_Bengali']">
-                            {getExamTypeBangla(paper.setup.examType)}
+                            {stripCorruptedUnicode(getExamTypeBangla(paper.setup.examType))}
                           </CardDescription>
                         </div>
                         <DropdownMenu>
@@ -226,7 +300,7 @@ export default function Dashboard() {
                           </Badge>
                           <Badge variant="outline" className="text-xs font-['Noto_Sans_Bengali']">
                             <GraduationCap className="w-3 h-3 mr-1" />
-                            {paper.questions.length} প্রশ্ন
+                            {paper.questions?.length || 0} প্রশ্ন
                           </Badge>
                         </div>
                         
@@ -253,7 +327,6 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Floating Action Button - Mobile Only */}
       {isMobile && (
         <FAB 
           onClick={() => navigate('/setup')}
