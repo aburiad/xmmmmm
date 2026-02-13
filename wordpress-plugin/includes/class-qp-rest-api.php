@@ -28,105 +28,89 @@ class QP_REST_API {
     public function register_routes() {
         $namespace = 'qpm/v1';
         
-        // Authentication endpoint
-        register_rest_route('myqugen/v1', '/auth', array(
-            'methods'             => 'POST',
-            'callback'            => array($this, 'check_email'),
-            'permission_callback' => '__return_true',
-        ));
-        
-        // Verify token endpoint
-        register_rest_route('myqugen/v1', '/verify', array(
-            'methods'             => 'POST',
-            'callback'            => array($this, 'verify_token'),
-            'permission_callback' => '__return_true',
-        ));
-        
-        // Generate PDF from JSON data
-        register_rest_route($namespace, '/generate-pdf', array(
-            'methods'             => 'POST',
-            'callback'            => array($this, 'generate_pdf'),
-            'permission_callback' => '__return_true', // Public access (আপাতত, পরে auth যোগ করবেন)
-        ));
-        
-        // Get PDF by ID
-        register_rest_route($namespace, '/papers/(?P<id>\d+)/pdf', array(
-            'methods'             => 'GET',
-            'callback'            => array($this, 'get_pdf'),
-            'permission_callback' => '__return_true',
-            'args'                => array(
-                'id' => array(
-                    'required'          => true,
-                    'validate_callback' => function($param) {
-                        return is_numeric($param);
-                    }
-                ),
-            ),
-        ));
-        
-        // Save question paper
+        // PAPERS LIST - GET all papers and POST to create
         register_rest_route($namespace, '/papers', array(
-            'methods'             => 'POST',
-            'callback'            => array($this, 'save_paper'),
-            'permission_callback' => '__return_true',
+            array(
+                'methods'             => 'GET',
+                'callback'            => array($this, 'get_papers'),
+                'permission_callback' => '__return_true',
+            ),
+            array(
+                'methods'             => 'POST',
+                'callback'            => array($this, 'save_paper'),
+                'permission_callback' => '__return_true',
+            ),
         ));
         
-        // Get all papers
-        register_rest_route($namespace, '/papers', array(
-            'methods'             => 'GET',
-            'callback'            => array($this, 'get_papers'),
-            'permission_callback' => '__return_true',
-        ));
-        
-        // Get single paper
+        // SINGLE PAPER - GET, PUT, DELETE
         register_rest_route($namespace, '/papers/(?P<id>\d+)', array(
-            'methods'             => 'GET',
-            'callback'            => array($this, 'get_paper'),
-            'permission_callback' => '__return_true',
-            'args'                => array(
-                'id' => array(
-                    'required'          => true,
-                    'validate_callback' => function($param) {
-                        return is_numeric($param);
-                    }
+            array(
+                'methods'             => 'GET',
+                'callback'            => array($this, 'get_paper'),
+                'permission_callback' => '__return_true',
+                'args'                => array(
+                    'id' => array(
+                        'required'          => true,
+                        'validate_callback' => function($param) {
+                            return is_numeric($param);
+                        }
+                    ),
+                ),
+            ),
+            array(
+                'methods'             => 'PUT',
+                'callback'            => array($this, 'update_paper'),
+                'permission_callback' => '__return_true',
+                'args'                => array(
+                    'id' => array(
+                        'required'          => true,
+                        'validate_callback' => function($param) {
+                            return is_numeric($param);
+                        }
+                    ),
+                ),
+            ),
+            array(
+                'methods'             => 'DELETE',
+                'callback'            => array($this, 'delete_paper'),
+                'permission_callback' => '__return_true',
+                'args'                => array(
+                    'id' => array(
+                        'required'          => true,
+                        'validate_callback' => function($param) {
+                            return is_numeric($param);
+                        }
+                    ),
                 ),
             ),
         ));
         
-        // Update paper
-        register_rest_route($namespace, '/papers/(?P<id>\d+)', array(
-            'methods'             => 'PUT',
-            'callback'            => array($this, 'update_paper'),
-            'permission_callback' => '__return_true',
-            'args'                => array(
-                'id' => array(
-                    'required'          => true,
-                    'validate_callback' => function($param) {
-                        return is_numeric($param);
-                    }
-                ),
-            ),
-        ));
-        
-        // Delete paper
-        register_rest_route($namespace, '/papers/(?P<id>\d+)', array(
-            'methods'             => 'DELETE',
-            'callback'            => array($this, 'delete_paper'),
-            'permission_callback' => '__return_true',
-            'args'                => array(
-                'id' => array(
-                    'required'          => true,
-                    'validate_callback' => function($param) {
-                        return is_numeric($param);
-                    }
-                ),
-            ),
-        ));
-        
-        // Duplicate paper
+        // DUPLICATE PAPER
         register_rest_route($namespace, '/papers/(?P<id>\d+)/duplicate', array(
             'methods'             => 'POST',
             'callback'            => array($this, 'duplicate_paper'),
+            'permission_callback' => '__return_true',
+            'args'                => array(
+                'id' => array(
+                    'required'          => true,
+                    'validate_callback' => function($param) {
+                        return is_numeric($param);
+                    }
+                ),
+            ),
+        ));
+        
+        // GENERATE PDF
+        register_rest_route($namespace, '/generate-pdf', array(
+            'methods'             => 'POST',
+            'callback'            => array($this, 'generate_pdf'),
+            'permission_callback' => '__return_true',
+        ));
+        
+        // GET PDF by ID
+        register_rest_route($namespace, '/papers/(?P<id>\d+)/pdf', array(
+            'methods'             => 'GET',
+            'callback'            => array($this, 'get_pdf'),
             'permission_callback' => '__return_true',
             'args'                => array(
                 'id' => array(
@@ -313,10 +297,10 @@ class QP_REST_API {
         try {
             $params = $request->get_json_params();
             
-            if (empty($params['title']) || empty($params['questionPaper'])) {
+            if (empty($params['title'])) {
                 return new WP_Error(
-                    'missing_data',
-                    'Title and question paper data are required',
+                    'missing_title',
+                    'Title is required',
                     array('status' => 400)
                 );
             }
@@ -326,7 +310,7 @@ class QP_REST_API {
                 'post_title'   => sanitize_text_field($params['title']),
                 'post_type'    => 'question_paper',
                 'post_status'  => 'publish',
-                'post_content' => '', // Optional: Add description
+                'post_content' => '',
             );
             
             $post_id = wp_insert_post($post_data);
@@ -335,8 +319,10 @@ class QP_REST_API {
                 return $post_id;
             }
             
-            // Save question paper data
-            update_post_meta($post_id, 'qp_data', wp_json_encode($params['questionPaper']));
+            // Save question paper data (React sends 'data')
+            if (!empty($params['data'])) {
+                update_post_meta($post_id, 'qp_data', wp_json_encode($params['data']));
+            }
             
             // Save page settings
             if (!empty($params['pageSettings'])) {
