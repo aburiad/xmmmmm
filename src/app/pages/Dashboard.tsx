@@ -44,7 +44,9 @@ export default function Dashboard() {
       setIsLoading(true);
       try {
         const loadedPapers = await loadPapers();
-        setPapers(loadedPapers);
+        // Clean corrupted unicode from all papers
+        const cleanedPapers = loadedPapers.map(p => cleanPaperData(p));
+        setPapers(cleanedPapers);
       } catch (error) {
         console.error('Error loading papers:', error);
         toast.error('Failed to load papers');
@@ -60,7 +62,8 @@ export default function Dashboard() {
     try {
       await deletePaper(id);
       const updatedPapers = await loadPapers();
-      setPapers(updatedPapers);
+      const cleanedPapers = updatedPapers.map(p => cleanPaperData(p));
+      setPapers(cleanedPapers);
       toast.success('Question paper deleted');
     } catch (error) {
       console.error('Error deleting paper:', error);
@@ -73,7 +76,8 @@ export default function Dashboard() {
       const newPaper = await duplicatePaper(id);
       if (newPaper) {
         const updatedPapers = await loadPapers();
-        setPapers(updatedPapers);
+        const cleanedPapers = updatedPapers.map(p => cleanPaperData(p));
+        setPapers(cleanedPapers);
         toast.success('Question paper duplicated');
       }
     } catch (error) {
@@ -131,6 +135,26 @@ export default function Dashboard() {
     if (!text) return '';
     // Remove patterns like u09XX (corrupted unicode escape sequences)
     return text.replace(/u[0-9a-fA-F]{4}/g, '').trim();
+  };
+
+  /**
+   * Recursively clean corrupted unicode from entire paper object
+   */
+  const cleanPaperData = (paper: QuestionPaper): QuestionPaper => {
+    return {
+      ...paper,
+      title: stripCorruptedUnicode(paper.title || ''),
+      setup: {
+        ...paper.setup,
+        subject: stripCorruptedUnicode(paper.setup.subject || ''),
+        schoolName: stripCorruptedUnicode(paper.setup.schoolName || ''),
+        instructions: stripCorruptedUnicode(paper.setup.instructions || ''),
+        class: paper.setup.class,
+        examType: paper.setup.examType,
+        date: paper.setup.date,
+      },
+      questions: Array.isArray(paper.questions) ? paper.questions : [],
+    };
   };
   };
 
