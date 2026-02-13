@@ -55,41 +55,70 @@ export const savePapers = async (papers: QuestionPaper[]) => {
  */
 export const loadPapers = async (): Promise<QuestionPaper[]> => {
   try {
+    debugLog('Loading papers from WordPress API');
+    
     // Load from WordPress API (primary source of truth)
     const papers = await wpApi.fetchAllPapers();
     
+    // Ensure papers is always an array
+    const papersArray = Array.isArray(papers) ? papers : [];
+    debugLog('Loaded from API:', papersArray.length, 'papers');
+    
     // Cache in localStorage for offline/performance
-    if (papers && papers.length > 0) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(papers));
+    if (papersArray && papersArray.length > 0) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(papersArray));
+      debugLog('Cached', papersArray.length, 'papers in localStorage');
     } else {
       // If no papers in WordPress, check localStorage cache
+      debugLog('No papers from API, checking localStorage cache');
       const cachedData = localStorage.getItem(STORAGE_KEY);
-      return cachedData ? JSON.parse(cachedData) : [];
+      if (cachedData) {
+        try {
+          const cached = JSON.parse(cachedData);
+          debugLog('Using cached papers:', Array.isArray(cached) ? cached.length : 0, 'papers');
+          return Array.isArray(cached) ? cached : [];
+        } catch (parseError) {
+          console.error('Error parsing cached data:', parseError);
+          return [];
+        }
+      }
+      return [];
     }
     
     // Debug: Log table blocks when loading
-    papers.forEach((paper: QuestionPaper, pidx: number) => {
-      paper.questions.forEach((q, qidx) => {
-        q.blocks.forEach((b, bidx) => {
-          if (b.type === 'table') {
-            console.log(`📥 Loaded Table from Paper${pidx + 1} Q${qidx + 1} Block${bidx + 1}:`, {
-              rows: b.content.rows,
-              cols: b.content.cols,
-              headers: b.content.headers,
-              data: b.content.data
-            });
-          }
-        });
+    if (Array.isArray(papersArray)) {
+      papersArray.forEach((paper: QuestionPaper, pidx: number) => {
+        if (paper && paper.questions && Array.isArray(paper.questions)) {
+          paper.questions.forEach((q, qidx) => {
+            if (q && q.blocks && Array.isArray(q.blocks)) {
+              q.blocks.forEach((b, bidx) => {
+                if (b && b.type === 'table') {
+                  console.log(`📥 Loaded Table from Paper${pidx + 1} Q${qidx + 1} Block${bidx + 1}:`, {
+                    rows: b.content.rows,
+                    cols: b.content.cols,
+                    headers: b.content.headers,
+                    data: b.content.data
+                  });
+                }
+              });
+            }
+          });
+        }
       });
-    });
+    }
     
-    return papers;
+    return papersArray;
   } catch (error) {
     console.error('Error loading papers from WordPress:', error);
     // Fallback to localStorage cache if API fails
     try {
       const cachedData = localStorage.getItem(STORAGE_KEY);
-      return cachedData ? JSON.parse(cachedData) : [];
+      if (cachedData) {
+        const cached = JSON.parse(cachedData);
+        debugLog('Using localStorage fallback, papers:', Array.isArray(cached) ? cached.length : 0);
+        return Array.isArray(cached) ? cached : [];
+      }
+      return [];
     } catch (cacheError) {
       console.error('Error loading from cache:', cacheError);
       return [];
@@ -193,7 +222,14 @@ export const deletePaper = async (id: string) => {
 export const duplicatePaper = async (id: string): Promise<QuestionPaper | null> => {
   try {
     const papers = await loadPapers();
-    const paper = papers.find(p => p.id === id);
+    
+    // Ensure papers is an array
+    if (!Array.isArray(papers)) {
+      console.error('[Duplicate Paper] Papers is not an array:', typeof papers, papers);
+      return null;
+    }
+    
+    const paper = papers.find(p => p && p.id === id);
     
     if (!paper) return null;
     

@@ -72,19 +72,30 @@ const checkApiAvailability = async () => {
  */
 export const fetchAllPapers = async () => {
   try {
+    console.log('[Fetch Papers] Getting all papers from:', `${API_BASE_URL}/papers`);
+    
     const response = await fetch(`${API_BASE_URL}/papers`, {
       method: 'GET',
       headers: getHeaders(),
     });
     
+    console.log('[Fetch Papers] Response status:', response.status);
+    
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      console.error('[Fetch Papers] Error status:', response.status);
+      if (response.status === 404) {
+        console.error('[Fetch Papers] 404 - Routes not registered, plugin may not be updated');
+      }
+      // Return empty array on error instead of throwing
+      return [];
     }
     
     const data = await response.json();
-    return data.papers || [];
+    const papers = Array.isArray(data) ? data : (data.papers || []);
+    console.log('[Fetch Papers] Got', papers.length, 'papers');
+    return papers;
   } catch (error) {
-    handleError(error);
+    console.error('[Fetch Papers] Exception:', error);
     return [];
   }
 };
