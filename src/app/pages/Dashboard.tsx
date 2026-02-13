@@ -100,6 +100,30 @@ export default function Dashboard() {
     return map[type] || type;
   };
 
+  const getSubjectBangla = (subject: string) => {
+    const map: Record<string, string> = {
+      'math': 'গণিত',
+      'science': 'বিজ্ঞান',
+      'bangla': 'বাংলা',
+      'english': 'ইংরেজি',
+      'ict': 'তথ্য ও যোগাযোগ প্রযুক্তি',
+      'custom': 'অন্যান্য',
+    };
+    return map[subject] || subject;
+  };
+
+  const getClassBangla = (classValue: string) => {
+    const map: Record<string, string> = {
+      '6': '৬',
+      '7': '৭',
+      '8': '৮',
+      '9': '৯',
+      '10': '১০',
+    };
+    return map[classValue] || classValue;
+  };
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 pb-safe">
       {/* Desktop Header - Hidden on Mobile */}
@@ -202,7 +226,7 @@ export default function Dashboard() {
                           onClick={() => navigate(`/builder/${paper.id}`)}
                         >
                           <CardTitle className={`mb-1 group-hover:text-blue-600 transition-colors font-['Noto_Sans_Bengali'] ${isMobile ? 'text-base' : 'text-base'}`}>
-                            {paper.setup.subject} - শ্রেণি {paper.setup.class}
+                            {getSubjectBangla(paper.setup.subject)} - শ্রেণি {getClassBangla(paper.setup.class)}
                           </CardTitle>
                           <CardDescription className="text-sm font-['Noto_Sans_Bengali']">
                             {getExamTypeBangla(paper.setup.examType)}
