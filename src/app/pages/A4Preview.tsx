@@ -1,25 +1,25 @@
-import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router';
-import { Button } from '../components/ui/button';
 import { ArrowLeft, BookOpen, Settings } from 'lucide-react';
-import { QuestionPaper } from '../types';
-import { loadPapers } from '../utils/storage';
-import { QuestionRenderer } from '../components/QuestionRenderer';
-import { BoardStyleLayout } from '../components/BoardStyleLayout';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router';
 import { toast } from 'sonner';
-import { Label } from '../components/ui/label';
+import { BoardStyleLayout } from '../components/BoardStyleLayout';
+import { PDFDownloadButton } from '../components/PDFDownloadButton';
+import { QuestionRenderer } from '../components/QuestionRenderer';
+import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Slider } from '../components/ui/slider';
+import { Label } from '../components/ui/label';
 import { ScrollArea } from '../components/ui/scroll-area';
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
+    Sheet,
+    SheetContent,
+    SheetDescription,
+    SheetHeader,
+    SheetTitle,
+    SheetTrigger,
 } from '../components/ui/sheet';
-import { PDFDownloadButton } from '../components/PDFDownloadButton';
+import { Slider } from '../components/ui/slider';
+import { QuestionPaper } from '../types';
+import { loadPapers } from '../utils/storage';
 
 export default function A4Preview() {
   const { paperId } = useParams();
@@ -37,15 +37,18 @@ export default function A4Preview() {
 
   // Load paper data
   useEffect(() => {
-    if (paperId) {
-      const papers = loadPapers();
-      const found = papers.find(p => p.id === paperId);
-      if (found) {
-        setPaper(found);
-      } else {
-        navigate('/');
+    const loadPaperData = async () => {
+      if (paperId) {
+        const papers = await loadPapers();
+        const found = papers.find(p => p.id === paperId);
+        if (found) {
+          setPaper(found);
+        } else {
+          navigate('/');
+        }
       }
-    }
+    };
+    loadPaperData();
   }, [paperId, navigate]);
 
   // Load page settings from localStorage

@@ -58,15 +58,18 @@ export default function QuestionBuilder() {
   const isMobile = useIsMobile();
 
   useEffect(() => {
-    if (paperId) {
-      const papers = loadPapers();
-      const found = papers.find(p => p.id === paperId);
-      if (found) {
-        setPaper(found);
-      } else {
-        navigate('/');
+    const loadPaperData = async () => {
+      if (paperId) {
+        const papers = await loadPapers();
+        const found = papers.find(p => p.id === paperId);
+        if (found) {
+          setPaper(found);
+        } else {
+          navigate('/');
+        }
       }
-    }
+    };
+    loadPaperData();
   }, [paperId, navigate]);
 
   const createNewQuestion = () => {

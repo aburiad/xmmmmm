@@ -34,13 +34,16 @@ export default function PaperSetupPage() {
   const [customSubject, setCustomSubject] = useState('');
 
   useEffect(() => {
-    if (paperId) {
-      const papers = loadPapers();
-      const paper = papers.find(p => p.id === paperId);
-      if (paper) {
-        setSetup(paper.setup);
+    const loadPaperData = async () => {
+      if (paperId) {
+        const papers = await loadPapers();
+        const paper = papers.find(p => p.id === paperId);
+        if (paper) {
+          setSetup(paper.setup);
+        }
       }
-    }
+    };
+    loadPaperData();
   }, [paperId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
