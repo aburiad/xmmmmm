@@ -2,56 +2,63 @@ import { QuestionPaper } from '../types';
 import * as wpApi from './wpApiService';
 
 const STORAGE_KEY = 'bd-board-question-papers';
-const USE_WORDPRESS = true; // Toggle to use WordPress storage
 
 /**
- * Save papers to WordPress (primary) and fallback to localStorage
+ * Save paper to WordPress (primary storage)
+ * localStorage is used only as temporary cache
  */
 export const savePapers = async (papers: QuestionPaper[]) => {
   try {
-    // Always keep localStorage as backup
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(papers));
-    
-    // If WordPress storage is enabled, sync there too
-    if (USE_WORDPRESS) {
-      for (const paper of papers) {
-        if (paper.id && !paper.id.startsWith('temp-')) {
-          // If paper has a numeric ID, it's from WordPress
-          if (/^\d+$/.test(paper.id)) {
-            await wpApi.updatePaperInWordPress(
-              paper.id,
-              paper.setup?.schoolName || 'Untitled Paper',
-              paper,
-              { /* pageSettings if available */ }
-            );
-          } else {
-            // New paper - save to WordPress
-            const result = await wpApi.savePaperToWordPress(
-              paper.setup?.schoolName || 'Untitled Paper',
-              paper,
-              { /* pageSettings if available */ }
-            );
-            if (result.success && result.id) {
-              paper.id = result.id.toString();
-            }
+    // Save each paper to WordPress
+    for (const paper of papers) {
+      if (paper.id) {
+        // If paper has a numeric ID, it's from WordPress - update it
+        if (/^\d+$/.test(paper.id)) {
+          await wpApi.updatePaperInWordPress(
+            paper.id,
+            paper.setup?.schoolName || 'Untitled Paper',
+            paper,
+            {}
+          );
+        } else if (!paper.id.startsWith('temp-')) {
+          // Paper has a different ID format - save as new
+          const result = await wpApi.savePaperToWordPress(
+            paper.setup?.schoolName || 'Untitled Paper',
+            paper,
+            {}
+          );
+          if (result.success && result.id) {
+            paper.id = result.id.toString();
           }
         }
       }
     }
-  } catch (error) {
-    console.error('Error saving papers:', error);
-    // Fallback to localStorage only
+    
+    // Keep localStorage as cache only (not primary storage)
     localStorage.setItem(STORAGE_KEY, JSON.stringify(papers));
+  } catch (error) {
+    console.error('Error saving papers to WordPress:', error);
+    throw error;
   }
 };
 
 /**
- * Load papers from localStorage (with WordPress sync in background)
+ * Load papers from WordPress REST API (primary source)
+ * Caches in localStorage for performance
  */
-export const loadPapers = (): QuestionPaper[] => {
+export const loadPapers = async (): Promise<QuestionPaper[]> => {
   try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    const papers = data ? JSON.parse(data) : [];
+    // Load from WordPress API (primary source of truth)
+    const papers = await wpApi.fetchAllPapers();
+    
+    // Cache in localStorage for offline/performance
+    if (papers && papers.length > 0) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(papers));
+    } else {
+      // If no papers in WordPress, check localStorage cache
+      const cachedData = localStorage.getItem(STORAGE_KEY);
+      return cachedData ? JSON.parse(cachedData) : [];
+    }
     
     // Debug: Log table blocks when loading
     papers.forEach((paper: QuestionPaper, pidx: number) => {
@@ -69,26 +76,25 @@ export const loadPapers = (): QuestionPaper[] => {
       });
     });
     
-    // Background: Sync with WordPress if enabled
-    if (USE_WORDPRESS) {
-      syncWithWordPress().catch(err => console.error('Background sync error:', err));
-    }
-    
     return papers;
   } catch (error) {
-    console.error('Error loading papers:', error);
-    return [];
+    console.error('Error loading papers from WordPress:', error);
+    // Fallback to localStorage cache if API fails
+    try {
+      const cachedData = localStorage.getItem(STORAGE_KEY);
+      return cachedData ? JSON.parse(cachedData) : [];
+    } catch (cacheError) {
+      console.error('Error loading from cache:', cacheError);
+      return [];
+    }
   }
 };
 
 /**
- * Save a single paper
+ * Save a single paper to WordPress
  */
 export const savePaper = async (paper: QuestionPaper) => {
   try {
-    const papers = loadPapers();
-    const index = papers.findIndex(p => p.id === paper.id);
-    
     // Debug: Log table blocks before saving
     paper.questions.forEach((q, idx) => {
       q.blocks.forEach((b, bidx) => {
@@ -102,152 +108,142 @@ export const savePaper = async (paper: QuestionPaper) => {
         }
       });
     });
+
+    let savedPaper = paper;
     
-    if (index >= 0) {
-      papers[index] = paper;
+    // If paper has a numeric ID, it's already in WordPress - update it
+    if (paper.id && /^\d+$/.test(paper.id)) {
+      await wpApi.updatePaperInWordPress(
+        paper.id,
+        paper.setup?.schoolName || 'Untitled Paper',
+        paper,
+        {}
+      );
     } else {
-      papers.push(paper);
-    }
-    
-    // Save locally
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(papers));
-    
-    // Save to WordPress if enabled
-    if (USE_WORDPRESS) {
-      if (paper.id && /^\d+$/.test(paper.id)) {
-        // Update existing paper
-        await wpApi.updatePaperInWordPress(
-          paper.id,
-          paper.setup?.schoolName || 'Untitled Paper',
-          paper,
-          { /* pageSettings */ }
-        );
-      } else {
-        // Create new paper
-        const result = await wpApi.savePaperToWordPress(
-          paper.setup?.schoolName || 'Untitled Paper',
-          paper,
-          { /* pageSettings */ }
-        );
-        
-        if (result.success && result.id) {
-          // Update the paper ID to WordPress ID
-          paper.id = result.id.toString();
-          papers[index >= 0 ? index : papers.length - 1] = paper;
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(papers));
-        }
+      // New paper - save to WordPress first
+      const result = await wpApi.savePaperToWordPress(
+        paper.setup?.schoolName || 'Untitled Paper',
+        paper,
+        {}
+      );
+      
+      if (result.success && result.id) {
+        savedPaper.id = result.id.toString();
       }
     }
+    
+    // Cache in localStorage (not primary)
+    const papers = await loadPapers();
+    const index = papers.findIndex(p => p.id === savedPaper.id);
+    if (index >= 0) {
+      papers[index] = savedPaper;
+    } else {
+      papers.push(savedPaper);
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(papers));
   } catch (error) {
     console.error('Error saving paper:', error);
+    throw error;
   }
 };
 
 /**
- * Delete a paper
+ * Delete a paper from WordPress
  */
 export const deletePaper = async (id: string) => {
   try {
-    const papers = loadPapers();
-    const filtered = papers.filter(p => p.id !== id);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
-    
     // Delete from WordPress if it's a WordPress paper
-    if (USE_WORDPRESS && /^\d+$/.test(id)) {
+    if (/^\d+$/.test(id)) {
       await wpApi.deletePaperFromWordPress(id);
     }
+    
+    // Update localStorage cache
+    const papers = await loadPapers();
+    const filtered = papers.filter(p => p.id !== id);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
   } catch (error) {
     console.error('Error deleting paper:', error);
+    throw error;
   }
 };
 
 /**
- * Duplicate a paper
+ * Duplicate a paper in WordPress
  */
 export const duplicatePaper = async (id: string): Promise<QuestionPaper | null> => {
   try {
-    const papers = loadPapers();
+    const papers = await loadPapers();
     const paper = papers.find(p => p.id === id);
     
     if (!paper) return null;
     
-    const newPaper: QuestionPaper = {
-      ...paper,
-      id: generateId(),
-      setup: {
-        ...paper.setup,
-        schoolName: paper.setup.schoolName ? `${paper.setup.schoolName} (Copy)` : undefined,
-      },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    
-    // Save duplicate locally
-    papers.push(newPaper);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(papers));
-    
-    // Duplicate in WordPress if enabled and original is a WordPress paper
-    if (USE_WORDPRESS && /^\d+$/.test(id)) {
+    // Duplicate in WordPress if original is a WordPress paper
+    if (/^\d+$/.test(id)) {
       const result = await wpApi.duplicatePaperInWordPress(id);
       if (result.success && result.id) {
-        newPaper.id = result.id.toString();
-        papers[papers.length - 1] = newPaper;
+        const newPaper: QuestionPaper = {
+          ...paper,
+          id: result.id.toString(),
+          setup: {
+            ...paper.setup,
+            schoolName: paper.setup.schoolName ? `${paper.setup.schoolName} (Copy)` : undefined,
+          },
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        
+        // Cache in localStorage
+        papers.push(newPaper);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(papers));
+        
+        return newPaper;
       }
     }
     
-    return newPaper;
+    return null;
   } catch (error) {
     console.error('Error duplicating paper:', error);
-    return null;
+    throw error;
   }
 };
 
 /**
- * Generate unique ID for new papers
+ * Generate unique ID for new papers (temporary)
  */
 export const generateId = () => {
   return `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 };
 
 /**
- * Get all papers
+ * Get all papers from WordPress
  */
-export const getAllPapers = (): QuestionPaper[] => {
+export const getAllPapers = async (): Promise<QuestionPaper[]> => {
   return loadPapers();
 };
 
 /**
- * Clear all papers from localStorage
+ * Clear all papers from WordPress and localStorage
  */
-export const clearAllPapers = () => {
-  localStorage.removeItem(STORAGE_KEY);
-};
-
-/**
- * Background sync with WordPress
- */
-const syncWithWordPress = async () => {
-  if (!USE_WORDPRESS) return;
-  
+export const clearAllPapers = async () => {
   try {
-    // Fetch papers from WordPress
-    const wpPapers = await wpApi.fetchAllPapers();
+    // Get all papers first
+    const papers = await loadPapers();
     
-    // Merge with local papers (local takes precedence)
-    const localPapers = loadPapers();
-    const merged: QuestionPaper[] = [...localPapers];
-    
-    // Add WordPress papers that don't exist locally
-    for (const wpPaper of wpPapers) {
-      if (!merged.find(p => p.id === wpPaper.id)) {
-        merged.push(wpPaper);
+    // Delete each from WordPress
+    for (const paper of papers) {
+      if (paper.id && /^\d+$/.test(paper.id)) {
+        try {
+          await wpApi.deletePaperFromWordPress(paper.id);
+        } catch (err) {
+          console.error('Error deleting paper:', err);
+        }
       }
     }
     
-    // Update localStorage with merged data
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+    // Clear localStorage
+    localStorage.removeItem(STORAGE_KEY);
   } catch (error) {
-    console.error('Background sync error:', error);
+    console.error('Error clearing all papers:', error);
+    throw error;
   }
 };

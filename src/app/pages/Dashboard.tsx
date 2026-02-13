@@ -39,11 +39,12 @@ export default function Dashboard() {
   const isMobile = useIsMobile();
 
   useEffect(() => {
-    // Load papers from storage (localStorage + WordPress background sync)
-    const initialLoad = async () => {
+    // Load papers from WordPress on mount
+    const loadData = async () => {
       setIsLoading(true);
       try {
-        setPapers(loadPapers());
+        const loadedPapers = await loadPapers();
+        setPapers(loadedPapers);
       } catch (error) {
         console.error('Error loading papers:', error);
         toast.error('Failed to load papers');
@@ -52,13 +53,14 @@ export default function Dashboard() {
       }
     };
     
-    initialLoad();
+    loadData();
   }, []);
 
   const handleDelete = async (id: string) => {
     try {
       await deletePaper(id);
-      setPapers(loadPapers());
+      const updatedPapers = await loadPapers();
+      setPapers(updatedPapers);
       toast.success('Question paper deleted');
     } catch (error) {
       console.error('Error deleting paper:', error);
@@ -70,7 +72,8 @@ export default function Dashboard() {
     try {
       const newPaper = await duplicatePaper(id);
       if (newPaper) {
-        setPapers(loadPapers());
+        const updatedPapers = await loadPapers();
+        setPapers(updatedPapers);
         toast.success('Question paper duplicated');
       }
     } catch (error) {
