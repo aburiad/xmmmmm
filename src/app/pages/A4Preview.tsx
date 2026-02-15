@@ -358,7 +358,7 @@ export default function A4Preview() {
             className="bg-white"
             style={{
               margin: scale < 1 ? 0 : '0 auto',
-              ...(scale < 1 ? { position: 'absolute' as const, top: 0, left: 0, transform: `scale(${scale})`, transformOrigin: 'top left' } : {}),
+              ...(scale < 1 ? { position: 'absolute' as const, top: 0, left: 0, transform: `scale(1)`, transformOrigin: 'left top' } : {}),
             }}
           >
             {pageSplits && pageSplits.length > 0 ? (
