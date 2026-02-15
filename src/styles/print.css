@@ -33,6 +33,16 @@
     width: 100%;
   }
 
+  /* A4 pagination: each .print-page section starts a new printed page */
+  .print-page {
+    page-break-after: always;
+    break-after: page;
+  }
+  .print-page:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+
   /* Prevent page breaks inside important elements */
   .question-item,
   .board-question,

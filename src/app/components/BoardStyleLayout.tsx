@@ -1,22 +1,15 @@
 import { Block, Question, QuestionPaper } from '../types';
+import { getExamTypeBangla } from '../utils/helpers';
 import { SafeKaTeX } from './SafeKaTeX';
 
 interface BoardStyleLayoutProps {
   paper: QuestionPaper;
   baseFontSize?: number;
+  /** When true, hide header (for 2nd+ page in paginated preview) */
+  hideHeader?: boolean;
 }
 
-export function BoardStyleLayout({ paper, baseFontSize = 13 }: BoardStyleLayoutProps) {
-  const getExamTypeBangla = (type: string) => {
-    const map: Record<string, string> = {
-      'class-test': 'শ্রেণি পরীক্ষা',
-      'half-yearly': 'অর্ধ-বার্ষিক পরীক্ষা',
-      'annual': 'বার্ষিক পরীক্ষা',
-      'model-test': 'মডেল টেস্ট',
-    };
-    return map[type] || type;
-  };
-
+export function BoardStyleLayout({ paper, baseFontSize = 13, hideHeader = false }: BoardStyleLayoutProps) {
   // Get column count from layout (default to 2 if not specified)
   const columnCount = parseInt(paper.setup.layout || '2');
   
@@ -33,41 +26,40 @@ export function BoardStyleLayout({ paper, baseFontSize = 13 }: BoardStyleLayoutP
 
   return (
     <div className="board-exam-paper">
-      {/* Header Section - Spans full width above columns */}
-      <div className="board-header">
+      {!hideHeader && (
+      <div className="board-header" data-measure="header">
         <div className="text-center mb-4 pb-2 border-b border-black">
-          {paper.setup.schoolName && (
-            <h1 className="text-xl font-bold mb-1" style={{ fontFamily: "'Noto Serif Bengali', serif" }}>
-              {paper.setup.schoolName}
-            </h1>
-          )}
-          <h2 className="text-lg font-semibold mb-1" style={{ fontFamily: "'Noto Serif Bengali', serif" }}>
-            {getExamTypeBangla(paper.setup.examType)} – {new Date().getFullYear()}
-          </h2>
-          <div className="flex justify-center gap-6 text-sm mt-1">
-            <span style={{ fontFamily: "'Noto Serif Bengali', serif" }}>শ্রেণি: {paper.setup.class}</span>
-            <span style={{ fontFamily: "'Noto Serif Bengali', serif" }}>বিষয়: {paper.setup.subject}</span>
-          </div>
-          <div className="flex justify-between text-sm mt-2 px-4">
-            <span style={{ fontFamily: "'Noto Serif Bengali', serif" }}>সময়: {paper.setup.timeMinutes} মিনিট</span>
-            <span style={{ fontFamily: "'Noto Serif Bengali', serif" }}>পূর্ণমান: {paper.setup.totalMarks}</span>
+              {paper.setup.schoolName && (
+                <h1 className="text-xl font-bold mb-1" style={{ fontFamily: "'Noto Serif Bengali', serif" }}>
+                  {paper.setup.schoolName}
+                </h1>
+              )}
+              <h2 className="text-lg font-semibold mb-1" style={{ fontFamily: "'Noto Serif Bengali', serif" }}>
+                {getExamTypeBangla(paper.setup.examType)} – {new Date().getFullYear()}
+              </h2>
+              <div className="flex justify-center gap-6 text-sm mt-1">
+                <span style={{ fontFamily: "'Noto Serif Bengali', serif" }}>শ্রেণি: {paper.setup.class}</span>
+                <span style={{ fontFamily: "'Noto Serif Bengali', serif" }}>বিষয়: {paper.setup.subject}</span>
+              </div>
+              <div className="flex justify-between text-sm mt-2 px-4">
+                <span style={{ fontFamily: "'Noto Serif Bengali', serif" }}>সময়: {paper.setup.timeMinutes || '০'} মিনিট</span>
+                <span style={{ fontFamily: "'Noto Serif Bengali', serif" }}>পূর্ণমান: {paper.setup.totalMarks || '০'}</span>
           </div>
         </div>
-
-        {/* Instructions (compact, above columns) */}
         <div className="mb-3 text-xs border-b border-gray-300 pb-2" style={{ fontFamily: "'Noto Serif Bengali', serif" }}>
           <p className="italic">
             {paper.setup.instructions || '[দ্রষ্টব্য: ডান পাশে উল্লেখিত সংখ্যা প্রশ্নের পূর্ণমান জ্ঞাপক। প্রদত্ত উদ্দীপকটি পড়ে ক থেকে ঘ পর্যন্ত ৪টি প্রশ্নের উত্তর দিতে হবে।]'}
           </p>
         </div>
       </div>
+      )}
 
       {/* Multi-Column Layout */}
       <div className="board-columns">
         {questionColumns.map((column, idx) => (
           <div key={idx} className="board-column">
             {column.map((question) => (
-              <div key={question.id} className="question-item">
+              <div key={question.id} className="question-item" data-question-id={question.id}>
                 <BoardQuestion question={question} />
               </div>
             ))}
@@ -217,6 +209,19 @@ export function BoardStyleLayout({ paper, baseFontSize = 13 }: BoardStyleLayoutP
 
           .board-uddipok {
             background-color: rgba(240, 245, 250, 0.3);
+          }
+
+          /* Preserve column layout and spacing */
+          .board-columns {
+            display: grid;
+            grid-template-columns: repeat(${columnCount}, 1fr);
+            gap: 0;
+            min-height: auto;
+          }
+
+          .board-column {
+            padding: 0 8px;
+            margin: 0;
           }
         }
       `}</style>

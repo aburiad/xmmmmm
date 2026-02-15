@@ -4,16 +4,21 @@
  */
 
 export const ensureFontsLoaded = async (): Promise<void> => {
+  console.log('[FontLoader] Starting font loading...');
+  
   // Wait for document.fonts API to be ready
   if (document.fonts && document.fonts.ready) {
     try {
       await Promise.race([
         document.fonts.ready,
-        new Promise(resolve => setTimeout(resolve, 5000)) // 5 second timeout
+        new Promise(resolve => setTimeout(resolve, 8000)) // 8 second timeout
       ]);
+      console.log('[FontLoader] document.fonts.ready completed');
     } catch (e) {
-      console.warn('Font loading timeout:', e);
+      console.warn('[FontLoader] Font loading timeout:', e);
     }
+  } else {
+    console.warn('[FontLoader] document.fonts API not available');
   }
 
   // Define all fonts that need to be loaded
@@ -36,22 +41,28 @@ export const ensureFontsLoaded = async (): Promise<void> => {
     try {
       // Check if font is loaded
       const fontFace = `${font.weight} 16px "${font.family}"`;
-      if (!document.fonts.check(fontFace)) {
+      const isLoaded = document.fonts.check(fontFace);
+      if (!isLoaded) {
+        console.log(`[FontLoader] Loading font: ${font.family} ${font.weight}`);
         // Load the font with timeout
         await Promise.race([
           document.fonts.load(fontFace),
-          new Promise(resolve => setTimeout(resolve, 2000)) // 2 second per font timeout
+          new Promise(resolve => setTimeout(resolve, 3000)) // 3 second per font timeout
         ]);
+        console.log(`[FontLoader] Loaded font: ${font.family} ${font.weight}`);
+      } else {
+        console.log(`[FontLoader] Font already loaded: ${font.family} ${font.weight}`);
       }
     } catch (e) {
-      console.warn(`Failed to load font: ${font.family} ${font.weight}`, e);
+      console.warn(`[FontLoader] Failed to load font: ${font.family} ${font.weight}`, e);
     }
   });
 
   await Promise.all(fontPromises);
 
-  // Additional delay to ensure fonts are fully rendered
-  await new Promise(resolve => setTimeout(resolve, 500));
+  // Additional delay to ensure fonts are fully rendered in the DOM
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  console.log('[FontLoader] Font loading completed');
 };
 
 /**

@@ -1,5 +1,15 @@
 import { QuestionPaper } from '../types';
 
+export const getExamTypeBangla = (type: string): string => {
+  const map: Record<string, string> = {
+    'class-test': 'শ্রেণি পরীক্ষা',
+    'half-yearly': 'অর্ধ-বার্ষিক পরীক্ষা',
+    'annual': 'বার্ষিক পরীক্ষা',
+    'model-test': 'মডেল টেস্ট',
+  };
+  return map[type] || type;
+};
+
 export const calculateTotalMarks = (paper: QuestionPaper): number => {
   return paper.questions.reduce((total, question) => {
     if (question.type === 'creative' && question.subQuestions) {
@@ -28,6 +38,13 @@ export const getQuestionTypeIcon = (type: string): string => {
     'proof': '∵',
   };
   return icons[type] || '📝';
+};
+
+export const getClassBangla = (classValue: string): string => {
+  const map: Record<string, string> = {
+    '6': '৬', '7': '৭', '8': '৮', '9': '৯', '10': '১০',
+  };
+  return map[classValue] || classValue;
 };
 
 export const getBanglaNumber = (num: number): string => {

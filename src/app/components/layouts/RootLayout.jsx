@@ -13,9 +13,12 @@ export function RootLayout() {
   const isMobile = useIsMobile();
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div 
+      className={`min-h-screen bg-slate-50 ${isMobile ? 'pb-24' : ''}`}
+      style={isMobile ? { scrollPaddingBottom: '6rem' } : {}}
+    >
       {/* Main Content */}
-      <main className={isMobile ? 'pb-16' : ''}>
+      <main>
         <Outlet />
       </main>
 

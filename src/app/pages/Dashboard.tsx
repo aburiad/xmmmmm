@@ -31,6 +31,7 @@ import {
 import { useIsMobile } from '../hooks/useIsMobile';
 import { QuestionPaper } from '../types';
 import { deletePaper, duplicatePaper, loadPapers } from '../utils/storage';
+import { getClassBangla, getExamTypeBangla } from '../utils/helpers';
 
 export default function Dashboard() {
   const [papers, setPapers] = useState<QuestionPaper[]>([]);
@@ -38,26 +39,10 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
+  // Fallback function to clean any remaining corrupted unicode (shouldn't be needed now)
   const stripCorruptedUnicode = (text: string) => {
     if (!text) return '';
     return text.replace(/u[0-9a-fA-F]{4}/g, '').trim();
-  };
-
-  const cleanPaperData = (paper: QuestionPaper): QuestionPaper => {
-    return {
-      ...paper,
-      title: stripCorruptedUnicode(paper.title || ''),
-      setup: {
-        ...paper.setup,
-        subject: stripCorruptedUnicode(paper.setup.subject || ''),
-        schoolName: stripCorruptedUnicode(paper.setup.schoolName || ''),
-        instructions: stripCorruptedUnicode(paper.setup.instructions || ''),
-        class: paper.setup.class,
-        examType: paper.setup.examType,
-        date: paper.setup.date,
-      },
-      questions: Array.isArray(paper.questions) ? paper.questions : [],
-    };
   };
 
   useEffect(() => {
@@ -66,8 +51,7 @@ export default function Dashboard() {
       try {
         const loadedPapers = await loadPapers();
         const papersArray = Array.isArray(loadedPapers) ? loadedPapers : [];
-        const cleanedPapers = papersArray.map(p => cleanPaperData(p));
-        setPapers(cleanedPapers);
+        setPapers(papersArray);
       } catch (error) {
         console.error('Error loading papers:', error);
         toast.error('Failed to load papers');
@@ -83,8 +67,7 @@ export default function Dashboard() {
     try {
       await deletePaper(id);
       const updatedPapers = await loadPapers();
-      const cleanedPapers = updatedPapers.map(p => cleanPaperData(p));
-      setPapers(cleanedPapers);
+      setPapers(updatedPapers);
       toast.success('Question paper deleted');
     } catch (error) {
       console.error('Error deleting paper:', error);
@@ -97,8 +80,7 @@ export default function Dashboard() {
       const newPaper = await duplicatePaper(id);
       if (newPaper) {
         const updatedPapers = await loadPapers();
-        const cleanedPapers = updatedPapers.map(p => cleanPaperData(p));
-        setPapers(cleanedPapers);
+        setPapers(updatedPapers);
         toast.success('Question paper duplicated');
       }
     } catch (error) {
@@ -113,27 +95,6 @@ export default function Dashboard() {
     localStorage.removeItem('userName');
     navigate('/login');
     toast.info('Logged out successfully');
-  };
-
-  const getExamTypeBangla = (type: string) => {
-    const map: Record<string, string> = {
-      'class-test': 'শ্রেণি পরীক্ষা',
-      'half-yearly': 'অর্ধ-বার্ষিক',
-      'annual': 'বার্ষিক',
-      'model-test': 'মডেল টেস্ট',
-    };
-    return map[type] || type;
-  };
-
-  const getClassBangla = (classValue: string) => {
-    const map: Record<string, string> = {
-      '6': '৬',
-      '7': '৭',
-      '8': '৮',
-      '9': '৯',
-      '10': '১০',
-    };
-    return map[classValue] || classValue;
   };
 
   if (isLoading) {
@@ -187,6 +148,8 @@ export default function Dashboard() {
         <MobileHeader
           title="প্রশ্নপত্র জেনারেটর"
           subtitle="Question Paper Generator"
+          showBack={false}
+          onBack={() => {}}
           action={
             <div className="flex items-center gap-1">
               <HelpDialog />
@@ -231,55 +194,61 @@ export default function Dashboard() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {papers.map((paper) => {
-                const CardComponent = isMobile ? MobileCard : Card;
-                
-                return (
-                  <CardComponent key={paper.id} className="hover:shadow-md transition-shadow group">
-                    <CardHeader className={`pb-3 ${isMobile ? 'p-4' : ''}`}>
-                      <div className="flex items-start justify-between">
+              {papers.map((paper) => (
+                isMobile ? (
+                  <MobileCard 
+                    key={paper.id} 
+                    className="hover:shadow-md transition-shadow group"
+                  >
+                    <CardHeader className="pb-3 p-4">
+                      <div className="flex items-start justify-between gap-2">
                         <div 
-                          className="flex-1 cursor-pointer"
-                          onClick={() => navigate(`/builder/${paper.id}`)}
+                          className="flex-1 cursor-pointer min-w-0 active:bg-slate-50 rounded-lg -m-2 p-2"
+                          onClick={(e) => { e.stopPropagation(); navigate(`/builder/${paper.id}`); }}
                         >
-                          <CardTitle className={`mb-1 group-hover:text-blue-600 transition-colors font-['Noto_Sans_Bengali'] ${isMobile ? 'text-base' : 'text-base'}`}>
-                            {stripCorruptedUnicode(`শ্রেণি ${getClassBangla(paper.setup.class)}`)}
+                          <CardTitle className="mb-1 group-hover:text-blue-600 transition-colors font-['Noto_Sans_Bengali'] text-base">
+                            শ্রেণি {getClassBangla(String(paper.setup.class))}
                           </CardTitle>
 
                           {/* Subject Name added here */}
                           <div className="text-sm font-semibold text-blue-600 font-['Noto_Sans_Bengali'] mb-1">
-                            বিষয়: {stripCorruptedUnicode(paper.setup.subject)}
+                            বিষয়: {paper.setup.subject}
                           </div>
 
                           <CardDescription className="text-sm font-['Noto_Sans_Bengali']">
-                            {stripCorruptedUnicode(getExamTypeBangla(paper.setup.examType))}
+                            {getExamTypeBangla(paper.setup.examType)}
                           </CardDescription>
                         </div>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className={`p-0 ${isMobile ? 'h-10 w-10' : 'h-8 w-8'}`}>
-                              <MoreVertical className={isMobile ? 'w-5 h-5' : 'w-4 h-4'} />
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="p-0 h-10 w-10 shrink-0"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreVertical className="w-5 h-5" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => navigate(`/preview/${paper.id}`)}>
+                          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/preview/${paper.id}`); }}>
                               <Eye className="w-4 h-4 mr-2" />
                               <span className="font-['Noto_Sans_Bengali']">প্রিভিউ দেখুন</span>
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => navigate(`/setup/${paper.id}`)}>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/setup/${paper.id}`); }}>
                               <Settings className="w-4 h-4 mr-2" />
                               <span className="font-['Noto_Sans_Bengali']">সেটআপ এডিট করুন</span>
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => navigate(`/builder/${paper.id}`)}>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/builder/${paper.id}`); }}>
                               <Pencil className="w-4 h-4 mr-2" />
                               <span className="font-['Noto_Sans_Bengali']">প্রশ্ন সম্পাদনা করুন</span>
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDuplicate(paper.id)}>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDuplicate(paper.id); }}>
                               <Copy className="w-4 h-4 mr-2" />
                               <span className="font-['Noto_Sans_Bengali']">কপি করুন</span>
                             </DropdownMenuItem>
                             <DropdownMenuItem 
-                              onClick={() => handleDelete(paper.id)}
+                              onClick={(e) => { e.stopPropagation(); handleDelete(paper.id); }}
                               className="text-red-600"
                             >
                               <Trash2 className="w-4 h-4 mr-2" />
@@ -290,7 +259,93 @@ export default function Dashboard() {
                       </div>
                     </CardHeader>
                     <CardContent 
-                      className={`cursor-pointer ${isMobile ? 'p-4 pt-0' : ''}`}
+                      className="p-4 pt-0 cursor-pointer active:bg-slate-50 rounded-b-xl"
+                      onClick={(e) => { e.stopPropagation(); navigate(`/builder/${paper.id}`); }}
+                    >
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge variant="secondary" className="text-xs font-['Noto_Sans_Bengali']">
+                            {getExamTypeBangla(paper.setup.examType)}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs font-['Noto_Sans_Bengali']">
+                            <GraduationCap className="w-3 h-3 mr-1" />
+                            {paper.questions?.length || 0} প্রশ্ন
+                          </Badge>
+                        </div>
+                        
+                        <div className="flex items-center justify-between text-sm text-slate-600 font-['Noto_Sans_Bengali']">
+                          <div className="flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5" />
+                            <span>{paper.setup.timeMinutes} মিনিট</span>
+                          </div>
+                          <div className="font-medium">
+                            মোট নম্বর: {paper.setup.totalMarks}
+                          </div>
+                        </div>
+
+                        <div className="text-xs text-slate-400 pt-2 border-t">
+                          শেষ আপডেট: {new Date(paper.updatedAt).toLocaleDateString('bn-BD')}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </MobileCard>
+                ) : (
+                  <Card key={paper.id} className="hover:shadow-md transition-shadow group">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div 
+                          className="flex-1 cursor-pointer"
+                          onClick={() => navigate(`/builder/${paper.id}`)}
+                        >
+                          <CardTitle className="mb-1 group-hover:text-blue-600 transition-colors font-['Noto_Sans_Bengali'] text-base">
+                            শ্রেণি {getClassBangla(String(paper.setup.class))}
+                          </CardTitle>
+
+                          {/* Subject Name added here */}
+                          <div className="text-sm font-semibold text-blue-600 font-['Noto_Sans_Bengali'] mb-1">
+                            বিষয়: {paper.setup.subject}
+                          </div>
+
+                          <CardDescription className="text-sm font-['Noto_Sans_Bengali']">
+                            {getExamTypeBangla(paper.setup.examType)}
+                          </CardDescription>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="p-0 h-8 w-8" onClick={(e) => e.stopPropagation()}>
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/preview/${paper.id}`); }}>
+                              <Eye className="w-4 h-4 mr-2" />
+                              <span className="font-['Noto_Sans_Bengali']">প্রিভিউ দেখুন</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/setup/${paper.id}`); }}>
+                              <Settings className="w-4 h-4 mr-2" />
+                              <span className="font-['Noto_Sans_Bengali']">সেটআপ এডিট করুন</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/builder/${paper.id}`); }}>
+                              <Pencil className="w-4 h-4 mr-2" />
+                              <span className="font-['Noto_Sans_Bengali']">প্রশ্ন সম্পাদনা করুন</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDuplicate(paper.id); }}>
+                              <Copy className="w-4 h-4 mr-2" />
+                              <span className="font-['Noto_Sans_Bengali']">কপি করুন</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={(e) => { e.stopPropagation(); handleDelete(paper.id); }}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              <span className="font-['Noto_Sans_Bengali']">মুছে ফেলুন</span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </CardHeader>
+                    <CardContent 
+                      className="cursor-pointer"
                       onClick={() => navigate(`/builder/${paper.id}`)}
                     >
                       <div className="space-y-3">
@@ -319,9 +374,9 @@ export default function Dashboard() {
                         </div>
                       </div>
                     </CardContent>
-                  </CardComponent>
-                );
-              })}
+                  </Card>
+                )
+              ))}
             </div>
           </>
         )}

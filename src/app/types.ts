@@ -76,4 +76,6 @@ export interface QuestionPaper {
   questions: Question[];
   createdAt: string;
   updatedAt: string;
+  /** Logged-in user's email who created this paper - for showing only own papers */
+  createdBy?: string;
 }

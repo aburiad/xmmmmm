@@ -1,5 +1,16 @@
 /* Mobile-Specific Utility Classes */
 
+/* Scroll Padding for Fixed Bottom Nav (important for mobile) */
+@media (max-width: 768px) {
+  html {
+    scroll-padding-bottom: 6rem;
+  }
+
+  body {
+    scroll-padding-bottom: 6rem;
+  }
+}
+
 /* Prevent horizontal scrolling on mobile */
 @media (max-width: 768px) {
   body {
@@ -162,4 +173,11 @@
   z-index: 40;
   background: white;
   box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Scroll Padding Utilities for Bottom Nav */
+@media (max-width: 768px) {
+  .scroll-pb-nav {
+    scroll-padding-bottom: 6rem;
+  }
 }
