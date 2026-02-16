@@ -79,7 +79,7 @@ export function BoardStyleLayout({ paper, baseFontSize = 13, hideHeader = false 
           display: grid;
           grid-template-columns: repeat(${columnCount}, 1fr);
           gap: 0;
-          min-height: 180mm;
+          height: 180mm;
         }
 
         .board-column {
@@ -216,7 +216,7 @@ export function BoardStyleLayout({ paper, baseFontSize = 13, hideHeader = false 
             display: grid;
             grid-template-columns: repeat(${columnCount}, 1fr);
             gap: 0;
-            min-height: auto;
+            height: auto;
           }
 
           .board-column {
