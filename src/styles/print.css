@@ -4,7 +4,7 @@
   /* Page setup for A4 */
   @page {
     size: A4;
-    margin: 20mm;
+    margin: 5mm;
   }
 
   /* Ensure colors print */

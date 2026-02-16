@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface PrintablePagePreviewProps {
   children: React.ReactNode;
@@ -66,7 +66,7 @@ export function PrintablePagePreview({
         /* Print pagination controlled by browser via @page rule */
         @page {
           size: A4;
-          margin: 12mm;
+          margin: 5mm;
         }
 
         .printable-container {
