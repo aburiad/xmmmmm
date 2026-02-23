@@ -66,9 +66,10 @@ export function BlockEditor({ blocks, onChange }: BlockEditorProps) {
       {/* Block List */}
       {blocks.map((block, index) => (
         <div key={block.id} className="border border-slate-200 rounded-lg p-3 md:p-4 bg-white group">
-          <div className="flex items-start gap-2 md:gap-3">
+          {/* Mobile: column so input is 100% width, delete button below. Desktop: row with drag + content + delete */}
+          <div className="flex flex-col md:flex-row md:items-start gap-2 md:gap-3">
             {/* Drag Handle - Hidden on Mobile */}
-            <div className="hidden md:flex flex-col gap-1 pt-2">
+            <div className="hidden md:flex flex-col gap-1 pt-2 shrink-0">
               <Button
                 variant="ghost"
                 size="sm"
@@ -79,15 +80,17 @@ export function BlockEditor({ blocks, onChange }: BlockEditorProps) {
                 <GripVertical className="w-4 h-4" />
               </Button>
             </div>
-            
-            <div className="flex-1 min-w-0">
+
+            {/* Block content: full width on mobile, flex-1 on desktop */}
+            <div className="w-full min-w-0 flex-1 overflow-hidden">
               <BlockRenderer block={block} onChange={(content) => updateBlock(block.id, content)} />
             </div>
 
+            {/* Delete: on mobile right-aligned below content; on desktop in row */}
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 w-8 p-0 text-red-600 opacity-0 group-hover:opacity-100 md:opacity-0 active:opacity-100"
+              className="h-9 w-9 shrink-0 p-0 text-red-600 opacity-100 md:opacity-0 md:group-hover:opacity-100 touch-manipulation self-end md:self-auto"
               onClick={() => removeBlock(block.id)}
             >
               <Minus className="w-4 h-4" />
@@ -98,9 +101,9 @@ export function BlockEditor({ blocks, onChange }: BlockEditorProps) {
 
       {/* Add Block */}
       <div className="border-2 border-dashed border-slate-200 rounded-lg p-3 md:p-4 bg-slate-50">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
           <Select value={selectedBlockType} onValueChange={(value) => setSelectedBlockType(value as BlockType)}>
-            <SelectTrigger className="w-full sm:w-48 h-10 text-sm">
+            <SelectTrigger className="w-full sm:w-48 h-12 md:h-10 text-sm font-['Noto_Sans_Bengali']">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -149,7 +152,7 @@ export function BlockEditor({ blocks, onChange }: BlockEditorProps) {
             </SelectContent>
           </Select>
 
-          <Button onClick={() => addBlock(selectedBlockType)} size="sm" className="w-full sm:w-auto h-10">
+          <Button onClick={() => addBlock(selectedBlockType)} size="sm" className="w-full sm:w-auto h-12 md:h-10 font-['Noto_Sans_Bengali'] touch-manipulation">
             <Plus className="w-4 h-4 mr-2" />
             ব্লক যোগ করুন
           </Button>
@@ -163,28 +166,28 @@ function BlockRenderer({ block, onChange }: { block: Block; onChange: (content: 
   switch (block.type) {
     case 'text':
       return (
-        <div className="space-y-2">
-          <Label className="text-xs text-slate-500">টেক্সট</Label>
+        <div className="space-y-2 w-full min-w-0">
+          <Label className="text-xs text-slate-500 font-['Noto_Sans_Bengali']">টেক্সট</Label>
           <Textarea
             value={block.content.text || ''}
             onChange={(e) => onChange({ text: e.target.value })}
             placeholder="প্রশ্নের অংশ লিখুন..."
-            rows={2}
-            className="resize-none"
+            rows={3}
+            className="resize-none w-full min-h-[88px] md:min-h-0 font-['Noto_Sans_Bengali'] text-base"
           />
         </div>
       );
 
     case 'formula':
       return (
-        <div className="space-y-2">
-          <Label className="text-xs text-slate-500">গণিত সূত্র (LaTeX)</Label>
+        <div className="space-y-2 w-full min-w-0">
+          <Label className="text-xs text-slate-500 font-['Noto_Sans_Bengali']">গণিত সূত্র (LaTeX)</Label>
           <Textarea
             value={block.content.latex || ''}
             onChange={(e) => onChange({ latex: e.target.value })}
             placeholder="যেমন: x^2 + y^2 = r^2"
-            rows={3}
-            className="font-mono text-sm"
+            rows={4}
+            className="font-mono text-sm w-full min-h-[100px] md:min-h-0"
           />
           {block.content.latex && (
             <div className="p-3 bg-slate-50 rounded border border-slate-200">
@@ -204,7 +207,7 @@ function BlockRenderer({ block, onChange }: { block: Block; onChange: (content: 
 
     case 'image':
       return (
-        <div className="space-y-3">
+        <div className="space-y-3 w-full min-w-0">
           {/* Image Upload Section */}
           <div className="space-y-2">
             <Label className="text-xs text-slate-500 font-semibold">ছবি আপলোড করুন</Label>
@@ -254,7 +257,7 @@ function BlockRenderer({ block, onChange }: { block: Block; onChange: (content: 
               value={block.content.url || ''}
               onChange={(e) => onChange({ ...block.content, url: e.target.value })}
               placeholder="https://example.com/image.png"
-              className="w-full"
+              className="w-full h-12 md:h-9 min-h-[44px]"
             />
             <p className="text-xs text-slate-400">
               টিপস: Unsplash, Imgur বা অন্য image hosting সাইট থেকে ছবির লিংক ব্যবহার করুন
@@ -264,7 +267,7 @@ function BlockRenderer({ block, onChange }: { block: Block; onChange: (content: 
           {/* Width and Height Settings */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label className="text-xs text-slate-500">প্রস্থ (px)</Label>
+              <Label className="text-xs text-slate-500 font-['Noto_Sans_Bengali']">প্রস্থ (px)</Label>
               <Input
                 type="number"
                 min="50"
@@ -272,11 +275,11 @@ function BlockRenderer({ block, onChange }: { block: Block; onChange: (content: 
                 value={block.content.width || ''}
                 onChange={(e) => onChange({ ...block.content, width: e.target.value })}
                 placeholder="যেমন: 300"
-                className="w-full"
+                className="w-full h-12 md:h-9 min-h-[44px]"
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-xs text-slate-500">উচ্চতা (px)</Label>
+              <Label className="text-xs text-slate-500 font-['Noto_Sans_Bengali']">উচ্চতা (px)</Label>
               <Input
                 type="number"
                 min="50"
@@ -284,18 +287,18 @@ function BlockRenderer({ block, onChange }: { block: Block; onChange: (content: 
                 value={block.content.height || ''}
                 onChange={(e) => onChange({ ...block.content, height: e.target.value })}
                 placeholder="যেমন: 200"
-                className="w-full"
+                className="w-full h-12 md:h-9 min-h-[44px]"
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label className="text-xs text-slate-500">ক্যাপশন (ঐচ্ছিক)</Label>
+            <Label className="text-xs text-slate-500 font-['Noto_Sans_Bengali']">ক্যাপশন (ঐচ্ছিক)</Label>
             <Input
               value={block.content.caption || ''}
               onChange={(e) => onChange({ ...block.content, caption: e.target.value })}
               placeholder="ছবির বর্ণনা..."
-              className="w-full"
+              className="w-full h-12 md:h-9 min-h-[44px]"
             />
           </div>
 
@@ -323,13 +326,13 @@ function BlockRenderer({ block, onChange }: { block: Block; onChange: (content: 
 
     case 'table':
       return (
-        <div className="space-y-3">
+        <div className="space-y-3 w-full min-w-0">
           <Label className="text-xs text-slate-500">টেবিল</Label>
           
           {/* Table dimensions */}
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <Label className="text-xs">সারি (Rows)</Label>
+              <Label className="text-xs font-['Noto_Sans_Bengali']">সারি (Rows)</Label>
               <Input
                 type="number"
                 value={block.content.rows || 2}
@@ -344,10 +347,11 @@ function BlockRenderer({ block, onChange }: { block: Block; onChange: (content: 
                 placeholder="সারি"
                 min="1"
                 max="10"
+                className="w-full h-12 md:h-9 min-h-[44px]"
               />
             </div>
             <div>
-              <Label className="text-xs">কলাম (Columns)</Label>
+              <Label className="text-xs font-['Noto_Sans_Bengali']">কলাম (Columns)</Label>
               <Input
                 type="number"
                 value={block.content.cols || 2}
@@ -368,6 +372,7 @@ function BlockRenderer({ block, onChange }: { block: Block; onChange: (content: 
                 placeholder="কলাম"
                 min="1"
                 max="10"
+                className="w-full h-12 md:h-9 min-h-[44px]"
               />
             </div>
           </div>
@@ -388,7 +393,7 @@ function BlockRenderer({ block, onChange }: { block: Block; onChange: (content: 
                       onChange({ ...block.content, headers: newHeaders });
                     }}
                     placeholder={`কলাম ${colIdx + 1}`}
-                    className="text-sm font-['Noto_Sans_Bengali']"
+                    className="w-full text-sm font-['Noto_Sans_Bengali'] h-12 md:h-9 min-h-[44px]"
                   />
                 );
               })}
@@ -427,7 +432,7 @@ function BlockRenderer({ block, onChange }: { block: Block; onChange: (content: 
                             onChange({ ...block.content, data: newData });
                           }}
                           placeholder={`R${rowIdx + 1}C${colIdx + 1}`}
-                          className="text-sm font-['Noto_Sans_Bengali']"
+                          className="w-full text-sm font-['Noto_Sans_Bengali'] h-12 md:h-9 min-h-[44px]"
                         />
                       ))}
                     </div>
@@ -445,34 +450,36 @@ function BlockRenderer({ block, onChange }: { block: Block; onChange: (content: 
 
     case 'diagram':
       return (
-        <div className="space-y-2">
-          <Label className="text-xs text-slate-500">চিত্র বিবরণ</Label>
+        <div className="space-y-2 w-full min-w-0">
+          <Label className="text-xs text-slate-500 font-['Noto_Sans_Bengali']">চিত্র বিবরণ</Label>
           <Textarea
             value={block.content.description || ''}
             onChange={(e) => onChange({ description: e.target.value })}
             placeholder="চিত্রটির বিবরণ লিখুন (যেমন: একটি সমকোণী ত্রিভুজ ABC)"
-            rows={2}
+            rows={3}
+            className="w-full min-h-[88px] md:min-h-0 font-['Noto_Sans_Bengali']"
           />
         </div>
       );
 
     case 'list':
       return (
-        <div className="space-y-2">
-          <Label className="text-xs text-slate-500">তালিকা (প্রতি লাইনে একটি আইটেম)</Label>
+        <div className="space-y-2 w-full min-w-0">
+          <Label className="text-xs text-slate-500 font-['Noto_Sans_Bengali']">তালিকা (প্রতি লাইনে একটি আইটেম)</Label>
           <Textarea
             value={block.content.items?.join('\n') || ''}
             onChange={(e) => onChange({ items: e.target.value.split('\n') })}
             placeholder="আইটেম ১&#10;আইটেম ২&#10;আইটেম ৩"
-            rows={4}
+            rows={5}
+            className="w-full min-h-[120px] md:min-h-0 font-['Noto_Sans_Bengali']"
           />
         </div>
       );
 
     case 'blank':
       return (
-        <div className="space-y-2">
-          <Label className="text-xs text-slate-500">ফাঁকা স্থান</Label>
+        <div className="space-y-2 w-full min-w-0">
+          <Label className="text-xs text-slate-500 font-['Noto_Sans_Bengali']">ফাঁকা স্থান</Label>
           <Input
             type="number"
             value={block.content.lines || 1}
@@ -480,6 +487,7 @@ function BlockRenderer({ block, onChange }: { block: Block; onChange: (content: 
             placeholder="লাইন সংখ্যা"
             min="1"
             max="10"
+            className="w-full h-12 md:h-9 min-h-[44px]"
           />
         </div>
       );

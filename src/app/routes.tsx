@@ -1,14 +1,15 @@
 import { createBrowserRouter } from 'react-router';
-import Dashboard from './pages/Dashboard';
-import PaperSetup from './pages/PaperSetup';
-import QuestionBuilder from './pages/QuestionBuilder';
-import A4Preview from './pages/A4Preview';
-import Settings from './pages/Settings';
-import NotFound from './pages/NotFound';
-import Login from './pages/Login';
-import { RootLayout } from './components/layouts/RootLayout';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { RootLayout } from './components/layouts/RootLayout';
 import { RequireAuth } from './components/RequireAuth';
+import A4Preview from './pages/A4Preview';
+import Dashboard from './pages/Dashboard';
+import Login from './pages/Login';
+import NotFound from './pages/NotFound';
+import PaperSetup from './pages/PaperSetup';
+import PrintPreviewPage from './pages/PrintPreviewPage';
+import QuestionBuilder from './pages/QuestionBuilder';
+import Settings from './pages/Settings';
 
 export const router = createBrowserRouter([
   {
@@ -43,6 +44,10 @@ export const router = createBrowserRouter([
       {
         path: 'settings',
         element: <Settings />,
+      },
+      {
+        path: 'print-preview',
+        element: <PrintPreviewPage />,
       },
       {
         path: '*',

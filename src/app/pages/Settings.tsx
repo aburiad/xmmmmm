@@ -1,10 +1,10 @@
-import { ArrowLeft, Database, FileText, Trash2, Download, Upload } from 'lucide-react';
+import { ArrowLeft, Database, Download, FileText, Trash2, Upload } from 'lucide-react';
 import { useNavigate } from 'react-router';
+import { toast } from 'sonner';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { getAllPapers, clearAllPapers } from '../utils/storage';
-import { toast } from 'sonner';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { clearAllPapers, getAllPapers } from '../utils/storage';
 
 /**
  * Settings Page
@@ -184,7 +184,7 @@ export default function Settings() {
             </div>
             <div className="flex justify-between">
               <span className="text-slate-600 font-['Noto_Sans_Bengali']">Developer</span>
-              <span className="font-medium">Bangladesh Education Board</span>
+              <span className="font-medium">Ahsan Riad</span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-600 font-['Noto_Sans_Bengali']">Last Updated</span>

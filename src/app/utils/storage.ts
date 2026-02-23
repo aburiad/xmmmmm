@@ -3,6 +3,13 @@ import * as wpApi from './wpApiService';
 
 const STORAGE_KEY = 'bd-board-question-papers';
 
+/** Papers list: show only current user's papers when logged in */
+const filterPapersByCurrentUser = (papers: QuestionPaper[]): QuestionPaper[] => {
+  const userEmail = typeof localStorage !== 'undefined' ? localStorage.getItem('userEmail') : null;
+  if (!userEmail) return papers;
+  return papers.filter((p) => p.createdBy === userEmail);
+};
+
 /**
  * Debug helper - log storage operations
  */
@@ -12,17 +19,35 @@ const debugLog = (message: string, data?: any) => {
 
 /**
  * Properly decode Unicode escaped strings
- * Handles cases where text is stored as escaped sequences like \u09AC
+ * Handles cases where text is stored as escaped sequences like \u09AC or u09AC (corrupted)
  */
 const decodeUnicodeString = (str: any): string => {
   if (typeof str !== 'string') return str;
   
   try {
-    // If string contains unicode escape sequences, decode them
-    return str.replace(/\\u([0-9a-fA-F]{4})/g, (match, hex) => {
-      return String.fromCharCode(parseInt(hex, 16));
+    // First handle corrupted format without backslash: u09AC
+    let decoded = str.replace(/u([0-9a-fA-F]{4})/g, (match, hex) => {
+      try {
+        return String.fromCharCode(parseInt(hex, 16));
+      } catch (e) {
+        console.warn(`[Storage] Failed to decode: ${match}`, e);
+        return match;
+      }
     });
+    
+    // Then handle proper format with backslash: \u09AC
+    decoded = decoded.replace(/\\u([0-9a-fA-F]{4})/g, (match, hex) => {
+      try {
+        return String.fromCharCode(parseInt(hex, 16));
+      } catch (e) {
+        console.warn(`[Storage] Failed to decode: ${match}`, e);
+        return match;
+      }
+    });
+    
+    return decoded;
   } catch (e) {
+    console.warn('[Storage] Error decoding unicode string:', e);
     return str;
   }
 };
@@ -72,13 +97,19 @@ const ensurePaperStructure = (paper: any): QuestionPaper => {
       subject: paper.setup?.subject || '',
       class: classValue,
       examType: paper.setup?.examType || 'class-test',
+      timeMinutes: paper.setup?.timeMinutes || 60,
+      totalMarks: paper.setup?.totalMarks || 100,
+      layout: paper.setup?.layout || '1',
       date: paper.setup?.date || new Date().toISOString().split('T')[0],
       schoolName: paper.setup?.schoolName || '',
       instructions: paper.setup?.instructions || '',
+      duration: paper.setup?.duration || '',
+      schoolLogo: paper.setup?.schoolLogo || '',
     },
     questions: Array.isArray(paper.questions) ? paper.questions : [],
     createdAt: paper.createdAt || new Date().toISOString(),
     updatedAt: paper.updatedAt || new Date().toISOString(),
+    createdBy: paper.createdBy,
   };
 };
 
@@ -132,8 +163,16 @@ export const loadPapers = async (): Promise<QuestionPaper[]> => {
     // Check if localStorage has corrupted data with escaped unicode
     const cachedData = localStorage.getItem(STORAGE_KEY);
     if (cachedData && cachedData.includes('u09a')) {
-      debugLog('Corrupted data detected in localStorage, clearing cache');
-      localStorage.removeItem(STORAGE_KEY);
+      debugLog('Corrupted data detected in localStorage, attempting to decode');
+      try {
+        let cached = JSON.parse(cachedData);
+        cached = decodeObjectStrings(cached);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(cached));
+        debugLog('Fixed corrupted data in localStorage');
+      } catch (e) {
+        console.warn('[Storage] Failed to fix corrupted data, clearing cache:', e);
+        localStorage.removeItem(STORAGE_KEY);
+      }
     }
     
     // Load from WordPress API (primary source of truth)
@@ -182,7 +221,7 @@ export const loadPapers = async (): Promise<QuestionPaper[]> => {
           }).filter((p): p is QuestionPaper => p !== null);
           
           debugLog('Using cached papers:', validCached.length, 'papers');
-          return validCached;
+          return filterPapersByCurrentUser(validCached);
         } catch (parseError) {
           console.error('Error parsing cached data:', parseError);
           return [];
@@ -213,7 +252,7 @@ export const loadPapers = async (): Promise<QuestionPaper[]> => {
       });
     }
     
-    return validPapers;
+    return filterPapersByCurrentUser(validPapers);
   } catch (error) {
     console.error('Error loading papers from WordPress:', error);
     // Fallback to localStorage cache if API fails
@@ -235,7 +274,7 @@ export const loadPapers = async (): Promise<QuestionPaper[]> => {
         }).filter((p): p is QuestionPaper => p !== null);
         
         debugLog('Using localStorage fallback, papers:', validCached.length);
-        return validCached;
+        return filterPapersByCurrentUser(validCached);
       }
       return [];
     } catch (cacheError) {
@@ -246,12 +285,17 @@ export const loadPapers = async (): Promise<QuestionPaper[]> => {
 };
 
 /**
- * Save a single paper to WordPress
+ * Save a single paper to WordPress. Returns the saved paper (id may change for new papers).
  */
-export const savePaper = async (paper: QuestionPaper) => {
+export const savePaper = async (paper: QuestionPaper): Promise<QuestionPaper> => {
   try {
+    const userEmail = typeof localStorage !== 'undefined' ? localStorage.getItem('userEmail') : null;
+    const savedPaperInput: QuestionPaper = {
+      ...paper,
+      createdBy: userEmail || paper.createdBy,
+    };
     // Debug: Log table blocks before saving
-    paper.questions.forEach((q, idx) => {
+    savedPaperInput.questions.forEach((q, idx) => {
       q.blocks.forEach((b, bidx) => {
         if (b.type === 'table') {
           console.log(`📊 Saving Table in Q${idx + 1} Block${bidx + 1}:`, {
@@ -264,15 +308,15 @@ export const savePaper = async (paper: QuestionPaper) => {
       });
     });
 
-    let savedPaper = paper;
+    let savedPaper = savedPaperInput;
     
     // If paper has a numeric ID, it's already in WordPress - update it
-    if (paper.id && /^\d+$/.test(paper.id)) {
-      debugLog('Updating existing paper in WordPress:', paper.id);
+    if (savedPaperInput.id && /^\d+$/.test(savedPaperInput.id)) {
+      debugLog('Updating existing paper in WordPress:', savedPaperInput.id);
       const updateResult = await wpApi.updatePaperInWordPress(
-        paper.id,
-        paper.setup?.schoolName || 'Untitled Paper',
-        paper,
+        savedPaperInput.id,
+        savedPaperInput.setup?.schoolName || 'Untitled Paper',
+        savedPaperInput,
         {}
       );
       
@@ -282,17 +326,17 @@ export const savePaper = async (paper: QuestionPaper) => {
       }
     } else {
       // New paper - save to WordPress first
-      debugLog('Saving new paper to WordPress:', paper.setup?.schoolName);
+      debugLog('Saving new paper to WordPress:', savedPaperInput.setup?.schoolName);
       const result = await wpApi.savePaperToWordPress(
-        paper.setup?.schoolName || 'Untitled Paper',
-        paper,
+        savedPaperInput.setup?.schoolName || 'Untitled Paper',
+        savedPaperInput,
         {}
       );
       
       debugLog('Save result:', result);
       
       if (result.success && result.id) {
-        savedPaper.id = result.id.toString();
+        savedPaper = { ...savedPaperInput, id: result.id.toString() };
         debugLog('Paper saved successfully with ID:', result.id);
       } else {
         console.warn(`Failed to save paper to WordPress: ${result.error}`);
@@ -309,6 +353,7 @@ export const savePaper = async (paper: QuestionPaper) => {
       papers.push(savedPaper);
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(papers));
+    return savedPaper;
   } catch (error) {
     console.error('Error saving paper:', error);
     throw error;
@@ -356,6 +401,7 @@ export const duplicatePaper = async (id: string): Promise<QuestionPaper | null> 
     if (/^\d+$/.test(id)) {
       const result = await wpApi.duplicatePaperInWordPress(id);
       if (result.success && result.id) {
+        const userEmail = typeof localStorage !== 'undefined' ? localStorage.getItem('userEmail') : null;
         const newPaper: QuestionPaper = {
           ...paper,
           id: result.id.toString(),
@@ -365,6 +411,7 @@ export const duplicatePaper = async (id: string): Promise<QuestionPaper | null> 
           },
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
+          createdBy: userEmail || paper.createdBy,
         };
         
         // Cache in localStorage

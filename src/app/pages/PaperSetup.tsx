@@ -66,7 +66,7 @@ export default function PaperSetupPage() {
     let paper: QuestionPaper;
 
     if (paperId) {
-      const papers = loadPapers();
+      const papers = await loadPapers();
       const existing = papers.find(p => p.id === paperId);
       if (existing) {
         paper = {
@@ -75,6 +75,7 @@ export default function PaperSetupPage() {
           updatedAt: new Date().toISOString(),
         };
       } else {
+        toast.error('প্রশ্নপত্র খুঁজে পাওয়া যায়নি');
         return;
       }
     } else {
@@ -87,9 +88,9 @@ export default function PaperSetupPage() {
       };
     }
 
-    await savePaper(paper);
+    const saved = await savePaper(paper);
     toast.success('সেটআপ সংরক্ষিত হয়েছে');
-    navigate(`/builder/${paper.id}`);
+    navigate(`/builder/${saved.id}`);
   };
 
   return (

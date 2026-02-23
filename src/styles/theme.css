@@ -226,7 +226,7 @@
 @media print {
   @page {
     size: A4;
-    margin: 0;
+    margin: 5mm;
   }
 
   body {
@@ -257,5 +257,11 @@
 
   .board-two-columns {
     display: grid !important;
+  }
+}
+
+@media (max-width:768px){
+  #printable-content{
+    max-width: unset !important;
   }
 }
